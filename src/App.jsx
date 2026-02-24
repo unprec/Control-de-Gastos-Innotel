@@ -1,0 +1,851 @@
+import { useState, useMemo, useEffect } from "react";
+
+const USERS = {
+  "admin@empresa.com":    { pass:"admin123", name:"Administrador", role:"admin",  dept:null },
+  "movistar@empresa.com": { pass:"dep123",   name:"Usr. Movistar", role:"editor", dept:"Movistar" },
+  "entel@empresa.com":    { pass:"dep123",   name:"Usr. Entel",    role:"editor", dept:"Entel" },
+  "wom@empresa.com":      { pass:"dep123",   name:"Usr. Wom",      role:"editor", dept:"Wom" },
+};
+const MONTHS  = ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
+const CATS    = ["Comisiones/Ventas","Gastos Internos","Cargos Externos","Nómina/Sueldos","Gastos Operacionales","RRHH"];
+const CCOLORS = ["#4f7fff","#7c5cfc","#22c55e","#f97316","#eab308","#ef4444"];
+const DCOLORS = { Movistar:"#00b5e2", Entel:"#ff6b35", Wom:"#a78bfa" };
+const DEPTS   = ["Movistar","Entel","Wom"];
+
+const fmtMoney = n => (n < 0 ? "-$" : "$") + Math.abs(Math.round(n)).toLocaleString("es-CL");
+const deptColor = d => DCOLORS[d] || "#4f7fff";
+const deptRgb   = d => d==="Movistar"?"0,181,226":d==="Entel"?"255,107,53":"167,139,250";
+
+// Week helpers
+function getWeekRange(date) {
+  const d = new Date(date);
+  const day = d.getDay(); // 0=sun
+  const mon = new Date(d); mon.setDate(d.getDate() - (day===0?6:day-1));
+  const sun = new Date(mon); sun.setDate(mon.getDate()+6);
+  return { mon, sun };
+}
+function isSameWeek(dateStr, ref) {
+  const { mon, sun } = getWeekRange(ref);
+  const d = new Date(dateStr);
+  return d >= mon && d <= sun;
+}
+function weekLabel(date) {
+  const { mon, sun } = getWeekRange(date);
+  const fmt = d => d.toLocaleDateString("es-CL",{day:"2-digit",month:"2-digit"});
+  return `${fmt(mon)} – ${fmt(sun)}`;
+}
+
+// Demo data with commission fields
+const DEMO = [
+  // Febrero 2026 — semana 1 (1-7 feb)
+  {id:"d1",date:"2026-02-03",dept:"Movistar",cat:"Comisiones/Ventas",desc:"Pago diario vendedores",worker:"Juan Pérez",month:"Febrero",amount:880000,by:"admin",notes:"",
+   isComision:true,qtTotal:22,qtCorrectas:20,qtIncorrectas:2,valorUnitario:40000,netoComision:800000},
+  {id:"d2",date:"2026-02-03",dept:"Movistar",cat:"Gastos Internos",desc:"Arriendo oficina",worker:"—",month:"Febrero",amount:320000,by:"admin",notes:"Mes completo"},
+  // Febrero 2026 — semana 3 (15-21 feb)
+  {id:"d3",date:"2026-02-17",dept:"Entel",cat:"Comisiones/Ventas",desc:"Pago diario vendedores",worker:"María González",month:"Febrero",amount:600000,by:"entel",notes:"",
+   isComision:true,qtTotal:15,qtCorrectas:14,qtIncorrectas:1,valorUnitario:40000,netoComision:560000},
+  {id:"d4",date:"2026-02-07",dept:"Entel",cat:"Nómina/Sueldos",desc:"Sueldo base vendedor",worker:"Carlos Rojas",month:"Febrero",amount:450000,by:"admin",notes:""},
+  {id:"d5",date:"2026-02-10",dept:"Wom",cat:"Gastos Operacionales",desc:"Materiales de oficina",worker:"—",month:"Febrero",amount:45000,by:"admin",notes:""},
+  {id:"d6",date:"2026-02-18",dept:"Wom",cat:"Comisiones/Ventas",desc:"Pago diario vendedores",worker:"Luis Vega",month:"Febrero",amount:480000,by:"admin",notes:"",
+   isComision:true,qtTotal:12,qtCorrectas:11,qtIncorrectas:1,valorUnitario:40000,netoComision:440000},
+  {id:"d7",date:"2026-02-12",dept:"Wom",cat:"Cargos Externos",desc:"Proveedor logística",worker:"—",month:"Febrero",amount:180000,by:"admin",notes:"Factura #3421"},
+  // Febrero 2026 — semana 4 (22-28 feb) — 74 ventas Movistar
+  {id:"d8",date:"2026-02-24",dept:"Movistar",cat:"Comisiones/Ventas",desc:"Pago diario vendedores",worker:"Ana Torres",month:"Febrero",amount:4440000,by:"admin",notes:"",
+   isComision:true,qtTotal:74,qtCorrectas:74,qtIncorrectas:0,valorUnitario:60000,netoComision:4440000},
+  // Enero 2026
+  {id:"d9",date:"2026-01-15",dept:"Movistar",cat:"Nómina/Sueldos",desc:"Sueldo vendedor enero",worker:"Ana Torres",month:"Enero",amount:380000,by:"admin",notes:""},
+  {id:"d10",date:"2026-01-20",dept:"Entel",cat:"Gastos Internos",desc:"Servicios básicos",worker:"—",month:"Enero",amount:65000,by:"entel",notes:""},
+  {id:"d11",date:"2026-01-25",dept:"Wom",cat:"Comisiones/Ventas",desc:"Pago diario vendedores",worker:"Pedro Soto",month:"Enero",amount:320000,by:"admin",notes:"",
+   isComision:true,qtTotal:8,qtCorrectas:8,qtIncorrectas:0,valorUnitario:40000,netoComision:320000},
+];
+
+const DEMO_BILLING = [
+  {id:"b1",dept:"Movistar",month:"Febrero",productos:715,valorUnitario:52000,total:715*52000,notas:"Liquidación Feb 2026"},
+  {id:"b2",dept:"Entel",   month:"Febrero",productos:480,valorUnitario:48000,total:480*48000,notas:""},
+  {id:"b3",dept:"Wom",     month:"Febrero",productos:310,valorUnitario:45000,total:310*45000,notas:""},
+  {id:"b4",dept:"Movistar",month:"Enero",  productos:680,valorUnitario:52000,total:680*52000,notas:""},
+];
+
+// ── SVG DONUT ──
+function DonutChart({ data, total }) {
+  if (!total) return <div style={{color:"#4a5168",fontSize:13,textAlign:"center",padding:"60px 0",width:"100%"}}>Sin datos para este período</div>;
+  const R=78,r=48,cx=110,cy=110;
+  let sa=-Math.PI/2;
+  const slices = data.map((item,i) => {
+    const pct=item.value/total, ang=pct*2*Math.PI, ea=sa+ang, lg=ang>Math.PI?1:0;
+    const x1=cx+R*Math.cos(sa),y1=cy+R*Math.sin(sa),x2=cx+R*Math.cos(ea),y2=cy+R*Math.sin(ea);
+    const ix1=cx+r*Math.cos(sa),iy1=cy+r*Math.sin(sa),ix2=cx+r*Math.cos(ea),iy2=cy+r*Math.sin(ea);
+    const mid=sa+ang/2,lx=cx+(R+r)/2*Math.cos(mid),ly=cy+(R+r)/2*Math.sin(mid),ps=(pct*100).toFixed(1);
+    const el=(<g key={i}><path d={`M${x1} ${y1} A${R} ${R} 0 ${lg} 1 ${x2} ${y2} L${ix2} ${iy2} A${r} ${r} 0 ${lg} 0 ${ix1} ${iy1}Z`} fill={item.color} stroke="#0a0b0e" strokeWidth="2"><title>{item.label}: {fmtMoney(item.value)} ({ps}%)</title></path>{pct>0.06&&<text x={lx} y={ly} textAnchor="middle" dominantBaseline="middle" fontSize="10" fill="white" fontFamily="monospace" fontWeight="600">{ps}%</text>}</g>);
+    sa=ea; return el;
+  });
+  return (
+    <div style={{display:"flex",alignItems:"center",gap:16,width:"100%"}}>
+      <svg width="220" height="220" viewBox="0 0 220 220" style={{flexShrink:0}}>
+        {slices}
+        <text x={cx} y={cy-9} textAnchor="middle" fontSize="11" fill="#7a8399" fontFamily="sans-serif">Total</text>
+        <text x={cx} y={cy+10} textAnchor="middle" fontSize="13" fill="#e8ecf4" fontFamily="sans-serif" fontWeight="700">{fmtMoney(total)}</text>
+      </svg>
+      <div style={{flex:1,overflow:"hidden"}}>
+        {data.map((item,i)=>(
+          <div key={i} style={{display:"flex",alignItems:"center",gap:7,marginBottom:9}}>
+            <div style={{width:10,height:10,borderRadius:2,background:item.color,flexShrink:0}}/>
+            <span style={{fontSize:11,color:"#7a8399",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{item.label}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ── MODAL ──
+function Modal({ onClose, onSave, entry, userDept }) {
+  const [dept,    setDept]    = useState(entry?.dept   || userDept || "Movistar");
+  const [cat,     setCat]     = useState(entry?.cat    || CATS[0]);
+  const [desc,    setDesc]    = useState(entry?.desc   || "");
+  const [worker,  setWorker]  = useState(entry?.worker === "—" ? "" : (entry?.worker || ""));
+  const [month,   setMonth]   = useState(entry?.month  || MONTHS[new Date().getMonth()]);
+  const [amount,  setAmount]  = useState(entry?.isComision ? "" : (entry?.amount || ""));
+  const [date,    setDate]    = useState(entry?.date   || new Date().toISOString().split("T")[0]);
+  const [notes,   setNotes]   = useState(entry?.notes  || "");
+  // Commission fields
+  const [qtTotal,       setQtTotal]       = useState(entry?.qtTotal       || "");
+  const [qtCorrectas,   setQtCorrectas]   = useState(entry?.qtCorrectas   || "");
+  const [qtIncorrectas, setQtIncorrectas] = useState(entry?.qtIncorrectas || "");
+  const [valorUnit,     setValorUnit]     = useState(entry?.valorUnitario || "");
+
+  const isComision = cat === "Comisiones/Ventas";
+  const totalBruto = isComision ? (parseFloat(qtTotal)||0) * (parseFloat(valorUnit)||0) : parseFloat(amount)||0;
+  const netoComision = isComision ? ((parseFloat(qtCorrectas)||0) - (parseFloat(qtIncorrectas)||0)) * (parseFloat(valorUnit)||0) : 0;
+  const incorrectasMonto = isComision ? (parseFloat(qtIncorrectas)||0) * (parseFloat(valorUnit)||0) : 0;
+
+  const save = () => {
+    if (!desc.trim()||!date) { alert("Completa los campos obligatorios"); return; }
+    if (userDept && dept !== userDept) { alert("Sin permiso para este departamento"); return; }
+    if (isComision) {
+      if (!qtTotal||!valorUnit) { alert("Completa cantidad y valor unitario"); return; }
+      onSave({ dept,cat,desc:desc.trim(),worker:worker.trim()||"—",month,date,notes:notes.trim(),
+        amount: totalBruto, isComision:true,
+        qtTotal:parseFloat(qtTotal), qtCorrectas:parseFloat(qtCorrectas)||0,
+        qtIncorrectas:parseFloat(qtIncorrectas)||0, valorUnitario:parseFloat(valorUnit),
+        netoComision });
+    } else {
+      if (!amount) { alert("Completa el monto"); return; }
+      onSave({ dept,cat,desc:desc.trim(),worker:worker.trim()||"—",month,amount:parseFloat(amount),date,notes:notes.trim(),isComision:false });
+    }
+  };
+
+  const fi = { width:"100%",background:"#181b22",border:"1px solid #1e2330",borderRadius:8,padding:"9px 12px",color:"#e8ecf4",fontFamily:"inherit",fontSize:13,outline:"none" };
+  const lbl = txt => <label style={{fontSize:11,color:"#7a8399",textTransform:"uppercase",letterSpacing:".08em",display:"block",marginBottom:6}}>{txt}</label>;
+
+  return (
+    <div onClick={e=>e.target===e.currentTarget&&onClose()} style={{position:"fixed",inset:0,background:"rgba(0,0,0,.75)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:200,backdropFilter:"blur(4px)"}}>
+      <div style={{background:"#111318",border:"1px solid #2a3045",borderRadius:16,padding:32,width:520,maxWidth:"95vw",maxHeight:"90vh",overflowY:"auto"}}>
+        <div style={{fontWeight:700,fontSize:18,marginBottom:24}}>{entry?"Editar Gasto":"Agregar Gasto"}</div>
+
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:16}}>
+          <div>{lbl("Departamento")}<select style={fi} value={dept} onChange={e=>setDept(e.target.value)}>{DEPTS.map(d=><option key={d} disabled={!!userDept&&d!==userDept}>{d}</option>)}</select></div>
+          <div>{lbl("Categoría")}<select style={fi} value={cat} onChange={e=>setCat(e.target.value)}>{CATS.map(c=><option key={c}>{c}</option>)}</select></div>
+          <div style={{gridColumn:"1/-1"}}>{lbl("Descripción *")}<input style={fi} value={desc} onChange={e=>setDesc(e.target.value)} placeholder="Ej: Pago diario vendedores"/></div>
+          <div>{lbl("Trabajador")}<input style={fi} value={worker} onChange={e=>setWorker(e.target.value)} placeholder="Nombre"/></div>
+          <div>{lbl("Mes")}<select style={fi} value={month} onChange={e=>setMonth(e.target.value)}>{MONTHS.map(m=><option key={m}>{m}</option>)}</select></div>
+          <div>{lbl("Fecha *")}<input style={fi} type="date" value={date} onChange={e=>setDate(e.target.value)}/></div>
+
+          {/* COMISIONES FIELDS */}
+          {isComision ? (
+            <div style={{gridColumn:"1/-1",background:"rgba(79,127,255,.06)",border:"1px solid rgba(79,127,255,.15)",borderRadius:10,padding:16}}>
+                <div style={{fontSize:12,color:"#4f7fff",fontWeight:600,marginBottom:14}}>📊 Detalle de Comisiones</div>
+                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:12,marginBottom:14}}>
+                  <div>
+                    {lbl("Total ventas")}
+                    <input style={fi} type="number" min="0" value={qtTotal} onChange={e=>setQtTotal(e.target.value)} placeholder="22"/>
+                  </div>
+                  <div>
+                    {lbl("✅ Correctas")}
+                    <input style={{...fi,borderColor:"rgba(34,197,94,.3)"}} type="number" min="0" value={qtCorrectas} onChange={e=>setQtCorrectas(e.target.value)} placeholder="20"/>
+                  </div>
+                  <div>
+                    {lbl("❌ Incorrectas")}
+                    <input style={{...fi,borderColor:"rgba(239,68,68,.3)"}} type="number" min="0" value={qtIncorrectas} onChange={e=>setQtIncorrectas(e.target.value)} placeholder="2"/>
+                  </div>
+                </div>
+                <div style={{marginBottom:14}}>
+                  {lbl("Valor unitario ($)")}
+                  <input style={fi} type="number" min="0" value={valorUnit} onChange={e=>setValorUnit(e.target.value)} placeholder="40000"/>
+                </div>
+                {/* Live calculation */}
+                {qtTotal && valorUnit && (
+                  <div style={{background:"#0a0b0e",borderRadius:8,padding:12,display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8,textAlign:"center"}}>
+                    <div>
+                      <div style={{fontSize:10,color:"#7a8399",textTransform:"uppercase",letterSpacing:".06em",marginBottom:4}}>Total pagado</div>
+                      <div style={{fontWeight:700,fontSize:15,color:"#e8ecf4"}}>{fmtMoney(totalBruto)}</div>
+                    </div>
+                    <div>
+                      <div style={{fontSize:10,color:"#7a8399",textTransform:"uppercase",letterSpacing:".06em",marginBottom:4}}>Incorrectas</div>
+                      <div style={{fontWeight:700,fontSize:15,color:"#ef4444"}}>-{fmtMoney(incorrectasMonto)}</div>
+                    </div>
+                    <div>
+                      <div style={{fontSize:10,color:"#7a8399",textTransform:"uppercase",letterSpacing:".06em",marginBottom:4}}>Neto real</div>
+                      <div style={{fontWeight:700,fontSize:15,color:"#22c55e"}}>{fmtMoney(netoComision)}</div>
+                    </div>
+                  </div>
+                )}
+              </div>
+          ) : (
+            <div>{lbl("Monto ($) *")}<input style={fi} type="number" value={amount} onChange={e=>setAmount(e.target.value)} placeholder="0"/></div>
+          )}
+
+          <div style={{gridColumn:"1/-1"}}>{lbl("Notas")}<input style={fi} value={notes} onChange={e=>setNotes(e.target.value)} placeholder="Observaciones adicionales"/></div>
+        </div>
+
+        <div style={{display:"flex",gap:10,justifyContent:"flex-end",marginTop:24}}>
+          <button onClick={onClose} style={{background:"#181b22",border:"1px solid #2a3045",borderRadius:8,padding:"9px 20px",color:"#7a8399",cursor:"pointer",fontFamily:"inherit",fontSize:13}}>Cancelar</button>
+          <button onClick={save} style={{background:"#4f7fff",border:"none",borderRadius:8,padding:"9px 20px",color:"#fff",cursor:"pointer",fontWeight:600,fontSize:13}}>Guardar</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── BILLING MODAL ──
+function BillingModal({ onClose, onSave, entry }) {
+  const [dept,      setDept]      = useState(entry?.dept      || "Movistar");
+  const [month,     setMonth]     = useState(entry?.month     || MONTHS[new Date().getMonth()]);
+  const [productos, setProductos] = useState(entry?.productos || "");
+  const [valorUnit, setValorUnit] = useState(entry?.valorUnitario || "");
+  const [notas,     setNotas]     = useState(entry?.notas     || "");
+  const total = (parseFloat(productos)||0) * (parseFloat(valorUnit)||0);
+  const fi = { width:"100%",background:"#181b22",border:"1px solid #1e2330",borderRadius:8,padding:"9px 12px",color:"#e8ecf4",fontFamily:"inherit",fontSize:13,outline:"none" };
+  const lbl = txt => <label style={{fontSize:11,color:"#7a8399",textTransform:"uppercase",letterSpacing:".08em",display:"block",marginBottom:6}}>{txt}</label>;
+  const save = () => {
+    if (!productos||!valorUnit) { alert("Completa productos y valor unitario"); return; }
+    onSave({ dept, month, productos:parseFloat(productos), valorUnitario:parseFloat(valorUnit), total, notas });
+  };
+  return (
+    <div onClick={e=>e.target===e.currentTarget&&onClose()} style={{position:"fixed",inset:0,background:"rgba(0,0,0,.75)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:200,backdropFilter:"blur(4px)"}}>
+      <div style={{background:"#111318",border:"1px solid #2a3045",borderRadius:16,padding:32,width:440,maxWidth:"95vw"}}>
+        <div style={{fontWeight:700,fontSize:18,marginBottom:24}}>{entry?"Editar Facturación":"Registrar Facturación"}</div>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:16}}>
+          <div>{lbl("Departamento")}<select style={fi} value={dept} onChange={e=>setDept(e.target.value)}>{DEPTS.map(d=><option key={d}>{d}</option>)}</select></div>
+          <div>{lbl("Mes")}<select style={fi} value={month} onChange={e=>setMonth(e.target.value)}>{MONTHS.map(m=><option key={m}>{m}</option>)}</select></div>
+          <div>{lbl("Productos facturados")}<input style={fi} type="number" value={productos} onChange={e=>setProductos(e.target.value)} placeholder="715"/></div>
+          <div>{lbl("Valor unitario ($)")}<input style={fi} type="number" value={valorUnit} onChange={e=>setValorUnit(e.target.value)} placeholder="52000"/></div>
+          <div style={{gridColumn:"1/-1"}}>{lbl("Notas")}<input style={fi} value={notas} onChange={e=>setNotas(e.target.value)} placeholder="Ej: Liquidación Febrero"/></div>
+        </div>
+        {productos && valorUnit && (
+          <div style={{background:"#0a0b0e",borderRadius:8,padding:12,marginTop:16,textAlign:"center"}}>
+            <div style={{fontSize:11,color:"#7a8399",marginBottom:4}}>TOTAL FACTURADO</div>
+            <div style={{fontWeight:800,fontSize:22,color:"#22c55e"}}>{fmtMoney(total)}</div>
+            <div style={{fontSize:11,color:"#4a5168",marginTop:2}}>{productos} productos × {fmtMoney(parseFloat(valorUnit)||0)}</div>
+          </div>
+        )}
+        <div style={{display:"flex",gap:10,justifyContent:"flex-end",marginTop:24}}>
+          <button onClick={onClose} style={{background:"#181b22",border:"1px solid #2a3045",borderRadius:8,padding:"9px 20px",color:"#7a8399",cursor:"pointer",fontFamily:"inherit",fontSize:13}}>Cancelar</button>
+          <button onClick={save} style={{background:"#22c55e",border:"none",borderRadius:8,padding:"9px 20px",color:"#fff",cursor:"pointer",fontWeight:600,fontSize:13}}>Guardar</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function Toast({ msg, type }) {
+  if (!msg) return null;
+  return <div style={{position:"fixed",bottom:24,right:24,background:"#181b22",border:`1px solid ${type==="error"?"rgba(239,68,68,.3)":"rgba(34,197,94,.3)"}`,borderRadius:8,padding:"12px 20px",fontSize:13,color:type==="error"?"#ef4444":"#22c55e",zIndex:300}}>{msg}</div>;
+}
+
+export default function App() {
+  const [currentUser, setCurrentUser] = useState(null);
+
+  // Load SheetJS on mount
+  useEffect(() => {
+    if (!window.XLSX) {
+      const s = document.createElement("script");
+      s.src = "https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js";
+      document.head.appendChild(s);
+    }
+  }, []);
+  const [loginEmail, setLoginEmail]   = useState("admin@empresa.com");
+  const [loginPass,  setLoginPass]    = useState("admin123");
+  const [loginErr,   setLoginErr]     = useState("");
+  const [entries,    setEntries]      = useState([...DEMO]);
+  const [billing,    setBilling]      = useState([...DEMO_BILLING]);
+  const [view,       setView]         = useState("dashboard");
+  const [activeDept, setActiveDept]   = useState("all");
+  const [dashDept,   setDashDept]     = useState("all");
+  const [chartMode,  setChartMode]    = useState("cat");
+  const [dashMonth,  setDashMonth]    = useState(MONTHS[new Date().getMonth()]);
+  const [search,     setSearch]       = useState("");
+  const [filterCat,  setFilterCat]    = useState("");
+  const [filterMonth,setFilterMonth]  = useState("");
+  const [billMonth,  setBillMonth]    = useState(MONTHS[new Date().getMonth()]);
+  const [selectedWeek, setSelectedWeek] = useState(0); // 0 = semana actual
+  const [modal,      setModal]        = useState(null);
+  const [billModal,  setBillModal]    = useState(null);
+  const [toast,      setToast]        = useState(null);
+
+  // Reset week when month changes
+  useEffect(() => { setSelectedWeek(0); }, [dashMonth]);
+
+  const showToast = (msg, type="success") => { setToast({msg,type}); setTimeout(()=>setToast(null),2800); };
+  const doLogin = () => {
+    const u = USERS[loginEmail];
+    if (!u||u.pass!==loginPass) { setLoginErr("Credenciales incorrectas."); return; }
+    setLoginErr(""); setCurrentUser({email:loginEmail,...u});
+    if (u.dept) { setActiveDept(u.dept); setDashDept(u.dept); }
+  };
+  const doLogout = () => { setCurrentUser(null); setView("dashboard"); };
+
+  // Table data
+  const tableData = useMemo(() => {
+    let d = activeDept==="all" ? entries : entries.filter(e=>e.dept===activeDept);
+    if (search)      d = d.filter(e=>e.desc.toLowerCase().includes(search.toLowerCase())||e.worker.toLowerCase().includes(search.toLowerCase())||e.cat.toLowerCase().includes(search.toLowerCase()));
+    if (filterCat)   d = d.filter(e=>e.cat===filterCat);
+    if (filterMonth) d = d.filter(e=>e.month===filterMonth);
+    return d;
+  }, [entries,activeDept,search,filterCat,filterMonth]);
+
+  // Dashboard data
+  const dashData = useMemo(() => {
+    let d = [...entries];
+    const dep = currentUser?.dept || dashDept;
+    if (dep&&dep!=="all") d = d.filter(e=>e.dept===dep);
+    if (dashMonth) d = d.filter(e=>e.month===dashMonth);
+    return d;
+  }, [entries,currentUser,dashDept,dashMonth]);
+
+  // Build list of weeks for the selected month
+  const weeksInMonth = useMemo(() => {
+    const monthIdx = MONTHS.indexOf(dashMonth);
+    if (monthIdx === -1) return [];
+    const year = new Date().getFullYear();
+    const fmt = dt => dt.toLocaleDateString("es-CL", {day:"2-digit", month:"2-digit"});
+    const weeks = [];
+    let weekNum = 1;
+    // Start from day 1 of the month, advance 7 days at a time
+    let start = new Date(year, monthIdx, 1);
+    while (start.getMonth() === monthIdx) {
+      // Monday of this chunk = start (we define weeks as blocks of 7 from day 1)
+      const mon = new Date(start);
+      const sun = new Date(start); sun.setDate(start.getDate() + 6);
+      weeks.push({ label: `Semana ${weekNum} (${fmt(mon)} – ${fmt(sun)})`, mon, sun, num: weekNum });
+      weekNum++;
+      start.setDate(start.getDate() + 7);
+    }
+    return weeks;
+  }, [dashMonth]);
+
+  // Selected week range
+  const currentWeekRange = useMemo(() => {
+    if (!weeksInMonth.length) return null;
+    const idx = Math.min(selectedWeek, weeksInMonth.length - 1);
+    return weeksInMonth[idx];
+  }, [weeksInMonth, selectedWeek]);
+
+  // Weekly data filtered by selected week
+  const weekData = useMemo(() => {
+    if (!currentWeekRange) return [];
+    let d = [...entries].filter(e => {
+      const date = new Date(e.date);
+      return date >= currentWeekRange.mon && date <= currentWeekRange.sun;
+    });
+    const dep = currentUser?.dept || dashDept;
+    if (dep && dep !== "all") d = d.filter(e => e.dept === dep);
+    return d;
+  }, [entries, currentUser, dashDept, currentWeekRange]);
+
+  const weekComisiones = weekData.filter(e=>e.isComision);
+  const weekTotalPagado   = weekComisiones.reduce((s,e)=>s+e.amount,0);
+  const weekTotalNeto     = weekComisiones.reduce((s,e)=>s+(e.netoComision||e.amount),0);
+  const weekIncorrectas   = weekComisiones.reduce((s,e)=>s+(e.qtIncorrectas||0),0);
+  const weekPerdida       = weekTotalPagado - weekTotalNeto;
+
+  const dashGroups = useMemo(() => {
+    const groups={}, colorMap={};
+    if (chartMode==="cat") {
+      dashData.forEach(e=>{groups[e.cat]=(groups[e.cat]||0)+e.amount;});
+      Object.keys(groups).forEach((k,i)=>{colorMap[k]=CCOLORS[i%CCOLORS.length];});
+    } else {
+      dashData.forEach(e=>{groups[e.dept]=(groups[e.dept]||0)+e.amount;});
+      Object.keys(groups).forEach(k=>{colorMap[k]=DCOLORS[k]||"#888";});
+    }
+    return Object.entries(groups).sort((a,b)=>b[1]-a[1]).map(([label,value])=>({label,value,color:colorMap[label]}));
+  }, [dashData,chartMode]);
+
+  const dashTotal = dashGroups.reduce((s,i)=>s+i.value,0);
+  const maxEntry  = dashData.reduce((m,e)=>!m||e.amount>m.amount?e:m,null);
+  const minEntry  = dashData.reduce((m,e)=>!m||e.amount<m.amount?e:m,null);
+
+  const saveEntry = data => {
+    if (modal==="new") { setEntries(p=>[...p,{id:"e"+Date.now(),...data,by:currentUser.email.split("@")[0]}]); showToast("Gasto registrado ✓"); }
+    else               { setEntries(p=>p.map(e=>e.id===modal.id?{...e,...data}:e)); showToast("Gasto actualizado ✓"); }
+    setModal(null);
+  };
+  const deleteEntry = id => { if (!confirm("¿Eliminar?")) return; setEntries(p=>p.filter(e=>e.id!==id)); showToast("Eliminado"); };
+  const saveBilling = data => {
+    if (billModal==="new") { setBilling(p=>[...p,{id:"b"+Date.now(),...data}]); showToast("Facturación registrada ✓"); }
+    else                   { setBilling(p=>p.map(b=>b.id===billModal.id?{...b,...data}:b)); showToast("Facturación actualizada ✓"); }
+    setBillModal(null);
+  };
+  const deleteBilling = id => { if (!confirm("¿Eliminar?")) return; setBilling(p=>p.filter(b=>b.id!==id)); showToast("Eliminado"); };
+
+  const depts = currentUser?.role==="admin"||!currentUser?.dept ? ["all","Movistar","Entel","Wom"] : [currentUser.dept];
+
+  // ── EXPORT EXCEL ──
+  const exportExcel = async () => {
+    const XLSX = window.XLSX;
+    if (!XLSX) { showToast("Cargando Excel... intenta de nuevo en 2 segundos","error"); return; }
+    const wb = XLSX.utils.book_new();
+    const month = new Date().toLocaleDateString("es-CL",{month:"long",year:"numeric"});
+
+    // Helper: auto-width
+    const autoWidth = ws => {
+      const data = XLSX.utils.sheet_to_json(ws, {header:1});
+      const cols = data.reduce((acc,row) => {
+        row.forEach((cell,i) => { acc[i] = Math.max(acc[i]||8, String(cell||"").length+2); });
+        return acc;
+      }, []);
+      ws["!cols"] = cols.map(w => ({wch: Math.min(w, 40)}));
+    };
+
+    // ── Hoja: Resumen ──
+    const resumenRows = [
+      ["GastosPro — Resumen Ejecutivo", "", "", "", "", ""],
+      [`Exportado: ${new Date().toLocaleDateString("es-CL")}`, "", "", "", "", ""],
+      [],
+      ["Departamento","Total Gastos","Com. Pagadas","Neto Real","Ventas Incorrectas","Pérdida Incorrectas","Total Facturado","Margen"],
+    ];
+    DEPTS.forEach(dept => {
+      const de = entries.filter(e=>e.dept===dept);
+      const totalGastos   = de.reduce((s,e)=>s+e.amount,0);
+      const comPagadas    = de.filter(e=>e.isComision).reduce((s,e)=>s+e.amount,0);
+      const netoReal      = de.filter(e=>e.isComision).reduce((s,e)=>s+(e.netoComision||e.amount),0);
+      const incorrectas   = de.filter(e=>e.isComision).reduce((s,e)=>s+(e.qtIncorrectas||0),0);
+      const perdida       = comPagadas - netoReal;
+      const facturado     = billing.filter(b=>b.dept===dept).reduce((s,b)=>s+b.total,0);
+      const margen        = facturado - totalGastos;
+      resumenRows.push([dept, totalGastos, comPagadas, netoReal, incorrectas, perdida, facturado, margen]);
+    });
+    const wsResumen = XLSX.utils.aoa_to_sheet(resumenRows);
+    autoWidth(wsResumen);
+    XLSX.utils.book_append_sheet(wb, wsResumen, "Resumen");
+
+    // ── Hojas por departamento ──
+    DEPTS.forEach(dept => {
+      const de = entries.filter(e=>e.dept===dept);
+      const rows = [
+        [`Gastos — ${dept}`, "", "", "", "", "", "", "", "", "", ""],
+        [],
+        ["Fecha","Categoría","Descripción","Trabajador","Mes","Total Ventas","✅ Correctas","❌ Incorrectas","Valor Unitario","Total Pagado","Neto Real","Notas"],
+      ];
+      de.forEach(e => {
+        rows.push([
+          e.date, e.cat, e.desc, e.worker, e.month,
+          e.isComision ? e.qtTotal      : "—",
+          e.isComision ? e.qtCorrectas  : "—",
+          e.isComision ? e.qtIncorrectas: "—",
+          e.isComision ? e.valorUnitario: "—",
+          e.amount,
+          e.isComision ? (e.netoComision||e.amount) : e.amount,
+          e.notes||"",
+        ]);
+      });
+      rows.push(["TOTAL","","","","","","","","",
+        de.reduce((s,e)=>s+e.amount,0),
+        de.reduce((s,e)=>s+(e.isComision?(e.netoComision||e.amount):e.amount),0),
+        ""
+      ]);
+      const ws = XLSX.utils.aoa_to_sheet(rows);
+      autoWidth(ws);
+      XLSX.utils.book_append_sheet(wb, ws, dept);
+    });
+
+    // ── Hoja: Facturación ──
+    const billRows = [
+      ["Facturación — Ingresos vs Gastos","","","","","","","",""],
+      [],
+      ["Departamento","Mes","Productos","Valor Unitario","Total Facturado","Total Gastos","Com. Pagadas","Neto Real","Margen"],
+    ];
+    billing.forEach(b => {
+      const gastos   = entries.filter(e=>e.dept===b.dept&&e.month===b.month).reduce((s,e)=>s+e.amount,0);
+      const comPag   = entries.filter(e=>e.dept===b.dept&&e.month===b.month&&e.isComision).reduce((s,e)=>s+e.amount,0);
+      const neto     = entries.filter(e=>e.dept===b.dept&&e.month===b.month&&e.isComision).reduce((s,e)=>s+(e.netoComision||e.amount),0);
+      const margen   = b.total - gastos;
+      billRows.push([b.dept, b.month, b.productos, b.valorUnitario, b.total, gastos, comPag, neto, margen]);
+    });
+    const wsBill = XLSX.utils.aoa_to_sheet(billRows);
+    autoWidth(wsBill);
+    XLSX.utils.book_append_sheet(wb, wsBill, "Facturación");
+
+    XLSX.writeFile(wb, `GastosPro_${new Date().toISOString().split("T")[0]}.xlsx`);
+    showToast("Excel exportado ✓");
+  };
+
+  // Billing tab data
+  const filteredBilling = useMemo(()=>billing.filter(b=>b.month===billMonth),[billing,billMonth]);
+
+  // ── LOGIN ──
+  if (!currentUser) return (
+    <div style={{background:"#0a0b0e",minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",color:"#e8ecf4",fontFamily:"system-ui,sans-serif"}}>
+      <div style={{background:"#111318",border:"1px solid #1e2330",borderRadius:16,padding:48,width:380}}>
+        <div style={{fontWeight:800,fontSize:22,marginBottom:8,background:"linear-gradient(135deg,#4f7fff,#7c5cfc)",WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent"}}>GastosPro</div>
+        <div style={{color:"#7a8399",fontSize:13,marginBottom:28}}>Panel de Control Empresarial</div>
+        <div style={{background:"rgba(79,127,255,.08)",border:"1px solid rgba(79,127,255,.2)",borderRadius:8,padding:"12px 14px",fontSize:12,color:"#7a8399",marginBottom:24,lineHeight:1.5}}><strong style={{color:"#4f7fff"}}>Modo Demo</strong> — Datos en memoria local.</div>
+        {[["Correo","email","text",loginEmail,setLoginEmail],["Contraseña","pass","password",loginPass,setLoginPass]].map(([l,k,t,v,s])=>(
+          <div key={k}>
+            <label style={{fontSize:11,color:"#7a8399",textTransform:"uppercase",letterSpacing:".08em",display:"block",marginBottom:6}}>{l}</label>
+            <input type={t} value={v} onChange={e=>s(e.target.value)} onKeyDown={e=>e.key==="Enter"&&doLogin()} style={{width:"100%",background:"#181b22",border:"1px solid #1e2330",borderRadius:8,padding:"10px 14px",color:"#e8ecf4",fontFamily:"inherit",fontSize:14,outline:"none",marginBottom:16}}/>
+          </div>
+        ))}
+        <button onClick={doLogin} style={{width:"100%",background:"#4f7fff",border:"none",borderRadius:8,padding:11,color:"#fff",fontWeight:600,fontSize:14,cursor:"pointer"}}>Ingresar al Sistema</button>
+        {loginErr && <div style={{color:"#ef4444",fontSize:12,marginTop:10,textAlign:"center"}}>{loginErr}</div>}
+        <div style={{marginTop:18,fontSize:11,color:"#4a5168",textAlign:"center",lineHeight:1.8}}>admin@empresa.com / admin123<br/>movistar@empresa.com / dep123<br/>entel@empresa.com / dep123<br/>wom@empresa.com / dep123</div>
+      </div>
+    </div>
+  );
+
+  const initials = currentUser.name.split(" ").map(w=>w[0]).join("").substring(0,2);
+  const S = { surface:"#111318", surface2:"#181b22", border:"1px solid #1e2330", border2:"1px solid #2a3045" };
+
+  return (
+    <div style={{background:"#0a0b0e",minHeight:"100vh",color:"#e8ecf4",fontFamily:"system-ui,sans-serif"}}>
+      <div style={{background:"rgba(79,127,255,.06)",borderBottom:"1px solid rgba(79,127,255,.15)",padding:"7px 24px",fontSize:12,color:"#7a8399",textAlign:"center"}}><strong style={{color:"#4f7fff"}}>Modo Demo</strong> — Datos en memoria. Conecta Firebase para persistencia real.</div>
+
+      {/* TOPBAR */}
+      <div style={{height:56,background:S.surface,borderBottom:S.border,display:"flex",alignItems:"center",padding:"0 20px",gap:10,position:"sticky",top:0,zIndex:100}}>
+        <div style={{fontWeight:800,fontSize:16,background:"linear-gradient(135deg,#4f7fff,#7c5cfc)",WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent",marginRight:4,whiteSpace:"nowrap"}}>GastosPro</div>
+        <div style={{display:"flex",gap:2,background:S.surface2,border:S.border,borderRadius:8,padding:3}}>
+          {[["dashboard","📊 Dashboard"],["table","☰ Tabla"],["billing","💰 Facturación"]].map(([v,label])=>(
+            <button key={v} onClick={()=>setView(v)} style={{padding:"5px 14px",borderRadius:5,fontSize:12,fontWeight:500,cursor:"pointer",border:"none",color:view===v?"#e8ecf4":"#7a8399",background:view===v?S.surface:"transparent",fontFamily:"inherit",boxShadow:view===v?"0 1px 3px rgba(0,0,0,.3)":"none",whiteSpace:"nowrap"}}>
+              {label}
+            </button>
+          ))}
+        </div>
+        <div style={{display:"flex",gap:4,flex:1,overflowX:"auto"}}>
+          {depts.map(d=>{
+            const isActive=d===activeDept, color=deptColor(d);
+            return <button key={d} onClick={()=>setActiveDept(d)} style={{padding:"6px 14px",borderRadius:6,fontSize:13,fontWeight:500,cursor:"pointer",border:`1px solid ${isActive?(d==="all"?"rgba(79,127,255,.3)":`rgba(${deptRgb(d)},.3)`):"transparent"}`,color:isActive?(d==="all"?"#4f7fff":color):"#7a8399",background:isActive?(d==="all"?"rgba(79,127,255,.12)":`rgba(${deptRgb(d)},.12)`):"transparent",fontFamily:"inherit",whiteSpace:"nowrap"}}>{d==="all"?"Todos":d}</button>;
+          })}
+        </div>
+        <div style={{display:"flex",alignItems:"center",gap:10,marginLeft:"auto"}}>
+          <div style={{display:"flex",alignItems:"center",gap:8,background:S.surface2,border:S.border,borderRadius:20,padding:"4px 12px 4px 4px"}}>
+            <div style={{width:26,height:26,borderRadius:"50%",background:"linear-gradient(135deg,#4f7fff,#7c5cfc)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:11,fontWeight:700,color:"#fff"}}>{initials}</div>
+            <div><div style={{fontSize:12,fontWeight:500}}>{currentUser.name}</div><div style={{fontSize:10,color:"#7a8399"}}>{currentUser.role==="admin"?"Administrador":currentUser.role==="editor"?"Editor":"Lector"}</div></div>
+          </div>
+          <button onClick={exportExcel} title="Exportar a Excel" style={{background:"#166534",border:"1px solid #22c55e",borderRadius:6,height:32,padding:"0 12px",display:"flex",alignItems:"center",gap:5,cursor:"pointer",color:"#22c55e",fontSize:12,fontWeight:600}}>↓ Excel</button>
+          <button onClick={doLogout} style={{background:"none",border:S.border,borderRadius:6,width:32,height:32,display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",color:"#7a8399",fontSize:15}}>⎋</button>
+        </div>
+      </div>
+
+      {/* ── DASHBOARD ── */}
+      {view==="dashboard" && (
+        <div style={{padding:24}}>
+          <div style={{display:"flex",alignItems:"center",gap:12,flexWrap:"wrap",marginBottom:20}}>
+            <div>
+              <span style={{fontWeight:700,fontSize:20}}>{(currentUser.dept||dashDept)==="all"?"Dashboard Global":"Dashboard "+(currentUser.dept||dashDept)}</span>
+              <span style={{fontSize:13,color:"#7a8399",marginLeft:8}}>{dashMonth?dashMonth+" "+new Date().getFullYear():"Vista general"}</span>
+            </div>
+            {currentUser.role==="admin" && (
+              <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+                {["all","Movistar","Entel","Wom"].map(d=>{
+                  const active=d===dashDept,color=deptColor(d);
+                  return <button key={d} onClick={()=>setDashDept(d)} style={{padding:"5px 14px",borderRadius:20,fontSize:12,fontWeight:500,cursor:"pointer",border:`1px solid ${active?(d==="all"?"rgba(79,127,255,.3)":`rgba(${deptRgb(d)},.3)`):"#2a3045"}`,color:active?(d==="all"?"#4f7fff":color):"#7a8399",background:active?(d==="all"?"rgba(79,127,255,.12)":`rgba(${deptRgb(d)},.12)`):"transparent",fontFamily:"inherit"}}>{d==="all"?"Global":d}</button>;
+                })}
+              </div>
+            )}
+            <div style={{marginLeft:"auto",display:"flex",alignItems:"center",gap:8}}>
+              <label style={{fontSize:12,color:"#7a8399"}}>Mes:</label>
+              <select value={dashMonth} onChange={e=>setDashMonth(e.target.value)} style={{background:S.surface,border:S.border,borderRadius:8,padding:"7px 12px",color:"#e8ecf4",fontFamily:"inherit",fontSize:13,outline:"none",cursor:"pointer"}}>
+                <option value="">Todos</option>{MONTHS.map(m=><option key={m}>{m}</option>)}
+              </select>
+            </div>
+          </div>
+
+          {/* Metric cards */}
+          <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(200px,1fr))",gap:12,marginBottom:20}}>
+            {[
+              {bg:"linear-gradient(135deg,#4f7fff,#3a5fd4)",label:"Total Gastos",val:fmtMoney(dashTotal),sub:dashMonth||"Todos los meses"},
+              {bg:"linear-gradient(135deg,#7c5cfc,#5a3dd4)",label:"Valor Máximo",val:maxEntry?fmtMoney(maxEntry.amount):"—",sub:maxEntry?.cat||""},
+              {bg:"linear-gradient(135deg,#22c55e,#16a34a)",label:"Valor Mínimo",val:minEntry?fmtMoney(minEntry.amount):"—",sub:minEntry?.cat||""},
+              {bg:"linear-gradient(135deg,#f97316,#ea6000)",label:"Registros",val:dashData.length,sub:"entradas"},
+            ].map((m,i)=>(
+              <div key={i} style={{background:m.bg,borderRadius:14,padding:"22px 24px",position:"relative",overflow:"hidden"}}>
+                <div style={{fontSize:11,fontWeight:600,textTransform:"uppercase",letterSpacing:".1em",color:"rgba(255,255,255,.7)",marginBottom:10}}>{m.label}</div>
+                <div style={{fontWeight:800,fontSize:26,color:"#fff",letterSpacing:-1,lineHeight:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{m.val}</div>
+                <div style={{fontSize:11,color:"rgba(255,255,255,.6)",marginTop:6}}>{m.sub}</div>
+                <div style={{position:"absolute",top:16,right:16,width:28,height:28,background:"rgba(255,255,255,.15)",borderRadius:6,display:"flex",alignItems:"center",justifyContent:"center",fontSize:14}}>↗</div>
+              </div>
+            ))}
+          </div>
+
+          {/* Weekly summary */}
+          <div style={{background:S.surface,border:S.border,borderRadius:14,padding:24,marginBottom:20}}>
+            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",flexWrap:"wrap",gap:12,marginBottom:16}}>
+              <div>
+                <div style={{fontWeight:700,fontSize:15}}>📅 Resumen Semanal — Comisiones</div>
+                <div style={{fontSize:12,color:"#7a8399",marginTop:2}}>{currentWeekRange?.label || "Selecciona un mes"}</div>
+              </div>
+              <div style={{display:"flex",alignItems:"center",gap:8}}>
+                <label style={{fontSize:12,color:"#7a8399"}}>Semana:</label>
+                <div style={{display:"flex",gap:4}}>
+                  {weeksInMonth.map((w,i) => (
+                    <button key={i} onClick={()=>setSelectedWeek(i)} style={{padding:"5px 12px",borderRadius:20,fontSize:12,fontWeight:500,cursor:"pointer",border:`1px solid ${selectedWeek===i?"rgba(79,127,255,.4)":"#2a3045"}`,color:selectedWeek===i?"#4f7fff":"#7a8399",background:selectedWeek===i?"rgba(79,127,255,.12)":"transparent",fontFamily:"inherit",whiteSpace:"nowrap"}}>
+                      S{w.num}
+                    </button>
+                  ))}
+                </div>
+                <span style={{fontSize:11,color:"#7a8399",background:S.surface2,border:S.border2,borderRadius:20,padding:"4px 12px"}}>{weekComisiones.length} registros</span>
+              </div>
+            </div>
+            <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(160px,1fr))",gap:12,marginBottom:weekComisiones.length>0?20:0}}>
+              {[
+                {label:"Total pagado a vendedores",val:fmtMoney(weekTotalPagado),color:"#4f7fff"},
+                {label:"Ventas incorrectas",val:weekIncorrectas+" ventas",color:"#ef4444"},
+                {label:"Pérdida por incorrectas",val:"-"+fmtMoney(weekPerdida),color:"#ef4444"},
+                {label:"Neto real semana",val:fmtMoney(weekTotalNeto),color:"#22c55e"},
+              ].map((s,i)=>(
+                <div key={i} style={{background:S.surface2,border:S.border2,borderRadius:10,padding:"14px 16px"}}>
+                  <div style={{fontSize:10,color:"#7a8399",textTransform:"uppercase",letterSpacing:".08em",marginBottom:6}}>{s.label}</div>
+                  <div style={{fontWeight:700,fontSize:18,color:s.color}}>{s.val}</div>
+                </div>
+              ))}
+            </div>
+            {weekComisiones.length > 0 ? (
+              <table style={{width:"100%",borderCollapse:"collapse"}}>
+                <thead><tr style={{borderBottom:S.border}}>
+                  {["Fecha","Dept","Vendedor","Total ventas","✅ Correctas","❌ Incorrectas","Total pagado","Neto real"].map(h=>(
+                    <th key={h} style={{padding:"8px 10px",fontSize:10,textTransform:"uppercase",letterSpacing:".06em",color:"#7a8399",fontWeight:600,textAlign:"left"}}>{h}</th>
+                  ))}
+                </tr></thead>
+                <tbody>
+                  {weekComisiones.map(e=>(
+                    <tr key={e.id} style={{borderBottom:S.border}}>
+                      <td style={{padding:"10px",fontSize:12,color:"#7a8399",fontFamily:"monospace"}}>{e.date}</td>
+                      <td style={{padding:"10px"}}><span style={{background:`rgba(${deptRgb(e.dept)},.12)`,color:deptColor(e.dept),padding:"2px 8px",borderRadius:20,fontSize:11,fontWeight:600}}>{e.dept}</span></td>
+                      <td style={{padding:"10px",fontSize:13}}>{e.worker}</td>
+                      <td style={{padding:"10px",fontFamily:"monospace",fontWeight:600}}>{e.qtTotal}</td>
+                      <td style={{padding:"10px",color:"#22c55e",fontFamily:"monospace"}}>{e.qtCorrectas}</td>
+                      <td style={{padding:"10px",color:"#ef4444",fontFamily:"monospace"}}>{e.qtIncorrectas > 0 ? `-${e.qtIncorrectas}` : "0"}</td>
+                      <td style={{padding:"10px",fontFamily:"monospace",fontWeight:600}}>{fmtMoney(e.amount)}</td>
+                      <td style={{padding:"10px",fontFamily:"monospace",fontWeight:600,color:"#22c55e"}}>{fmtMoney(e.netoComision||e.amount)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            ) : (
+              <div style={{textAlign:"center",color:"#4a5168",fontSize:13,padding:"20px 0"}}>No hay registros de comisiones esta semana</div>
+            )}
+          </div>
+
+          {/* Charts */}
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:16}}>
+            <div style={{background:S.surface,border:S.border,borderRadius:14,padding:24}}>
+              <div style={{display:"flex",alignItems:"flex-start",justifyContent:"space-between",marginBottom:4}}>
+                <div><div style={{fontWeight:700,fontSize:15}}>Proporción por Valor</div><div style={{fontSize:12,color:"#7a8399",marginTop:2,marginBottom:18}}>{chartMode==="cat"?"Por categoría":"Por departamento"}</div></div>
+                <div style={{display:"flex",gap:4,background:S.surface2,border:S.border,borderRadius:6,padding:2}}>
+                  {[["cat","Categoría"],["dept","Departamento"]].map(([m,l])=>(
+                    <button key={m} onClick={()=>setChartMode(m)} style={{padding:"4px 10px",borderRadius:4,fontSize:11,fontWeight:500,cursor:"pointer",border:"none",background:chartMode===m?S.surface:"transparent",color:chartMode===m?"#e8ecf4":"#7a8399",fontFamily:"inherit"}}>{l}</button>
+                  ))}
+                </div>
+              </div>
+              <div style={{minHeight:220,display:"flex",alignItems:"center"}}><DonutChart data={dashGroups} total={dashTotal}/></div>
+            </div>
+            <div style={{background:S.surface,border:S.border,borderRadius:14,padding:24}}>
+              <div style={{fontWeight:700,fontSize:15,marginBottom:4}}>{chartMode==="cat"?"Monitoreo de Montos":"Gastos por Departamento"}</div>
+              <div style={{fontSize:12,color:"#7a8399",marginBottom:18}}>{chartMode==="cat"?"Detalle por categoría":"Detalle por departamento"}</div>
+              <table style={{width:"100%",borderCollapse:"collapse"}}>
+                <thead><tr>{["Nombre","Valor","%"].map((h,i)=><th key={h} style={{padding:"7px 0",fontSize:10,textTransform:"uppercase",letterSpacing:".08em",color:"#7a8399",fontWeight:600,textAlign:i>0?"right":"left",borderBottom:S.border}}>{h}</th>)}</tr></thead>
+                <tbody>
+                  {dashGroups.map((item,i)=>{
+                    const pct=dashTotal>0?(item.value/dashTotal*100).toFixed(1):0;
+                    return <tr key={i}><td style={{padding:"9px 0",borderBottom:S.border}}><div style={{fontWeight:500}}>{item.label}</div><div style={{height:4,borderRadius:2,background:item.color,width:`${pct}%`,marginTop:5}}/></td><td style={{padding:"9px 0",borderBottom:S.border,textAlign:"right",fontFamily:"monospace",fontWeight:500}}>{fmtMoney(item.value)}</td><td style={{padding:"9px 0",borderBottom:S.border,textAlign:"right",color:"#7a8399",fontFamily:"monospace"}}>{pct}%</td></tr>;
+                  })}
+                  {!dashGroups.length&&<tr><td colSpan={3} style={{padding:"40px 0",textAlign:"center",color:"#4a5168",fontSize:13}}>Sin datos</td></tr>}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── TABLE ── */}
+      {view==="table" && (
+        <div style={{padding:24,display:"flex",flexDirection:"column",gap:20}}>
+          <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(170px,1fr))",gap:12}}>
+            {[
+              {color:"#4f7fff",label:"Total Gastos",val:fmtMoney(entries.reduce((s,e)=>s+e.amount,0)),sub:`${entries.length} registros`},
+              {color:"#00b5e2",label:"Movistar",val:fmtMoney(entries.filter(e=>e.dept==="Movistar").reduce((s,e)=>s+e.amount,0)),sub:`${entries.filter(e=>e.dept==="Movistar").length} reg.`},
+              {color:"#ff6b35",label:"Entel",val:fmtMoney(entries.filter(e=>e.dept==="Entel").reduce((s,e)=>s+e.amount,0)),sub:`${entries.filter(e=>e.dept==="Entel").length} reg.`},
+              {color:"#a78bfa",label:"Wom",val:fmtMoney(entries.filter(e=>e.dept==="Wom").reduce((s,e)=>s+e.amount,0)),sub:`${entries.filter(e=>e.dept==="Wom").length} reg.`},
+            ].map((s,i)=>(
+              <div key={i} style={{background:S.surface,border:S.border,borderRadius:12,padding:"18px 20px",position:"relative",overflow:"hidden"}}>
+                <div style={{position:"absolute",top:0,left:0,right:0,height:2,background:s.color}}/>
+                <div style={{fontSize:10,textTransform:"uppercase",letterSpacing:".1em",color:"#7a8399",marginBottom:8,fontWeight:500}}>{s.label}</div>
+                <div style={{fontWeight:700,fontSize:22,letterSpacing:-.5}}>{s.val}</div>
+                <div style={{fontSize:11,color:"#4a5168",marginTop:4}}>{s.sub}</div>
+              </div>
+            ))}
+          </div>
+
+          <div style={{display:"flex",alignItems:"center",gap:10,flexWrap:"wrap"}}>
+            <div style={{display:"flex",alignItems:"center",gap:8,background:S.surface,border:S.border,borderRadius:8,padding:"7px 12px",flex:1,minWidth:180,maxWidth:300}}>
+              <span style={{color:"#4a5168",fontSize:15}}>⌕</span>
+              <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Buscar..." style={{background:"none",border:"none",outline:"none",color:"#e8ecf4",fontFamily:"inherit",fontSize:13,width:"100%"}}/>
+            </div>
+            <select value={filterCat} onChange={e=>setFilterCat(e.target.value)} style={{background:S.surface,border:S.border,borderRadius:8,padding:"7px 12px",color:"#e8ecf4",fontFamily:"inherit",fontSize:13,outline:"none",cursor:"pointer"}}>
+              <option value="">Todas las categorías</option>{CATS.map(c=><option key={c}>{c}</option>)}
+            </select>
+            <select value={filterMonth} onChange={e=>setFilterMonth(e.target.value)} style={{background:S.surface,border:S.border,borderRadius:8,padding:"7px 12px",color:"#e8ecf4",fontFamily:"inherit",fontSize:13,outline:"none",cursor:"pointer"}}>
+              <option value="">Todos los meses</option>{MONTHS.map(m=><option key={m}>{m}</option>)}
+            </select>
+            <button onClick={()=>setModal("new")} disabled={currentUser.role==="reader"} style={{background:"#4f7fff",border:"none",borderRadius:8,padding:"8px 16px",color:"#fff",fontWeight:600,fontSize:13,cursor:"pointer",opacity:currentUser.role==="reader"?.4:1,whiteSpace:"nowrap"}}>+ Agregar Gasto</button>
+            <button onClick={()=>{const h=["Fecha","Dept","Cat","Desc","Trabajador","Mes","Monto","Neto","Por"];const rows=tableData.map(e=>[e.date,e.dept,e.cat,`"${e.desc}"`,e.worker,e.month,e.amount,e.netoComision||e.amount,e.by]);const csv=[h,...rows].map(r=>r.join(",")).join("\n");const a=document.createElement("a");a.href=URL.createObjectURL(new Blob(["\uFEFF"+csv],{type:"text/csv;charset=utf-8;"}));a.download="gastos.csv";a.click();showToast("CSV exportado ✓");}} style={{background:S.surface2,border:S.border2,borderRadius:8,padding:"8px 16px",color:"#7a8399",fontFamily:"inherit",fontSize:13,cursor:"pointer",whiteSpace:"nowrap"}}>↓ CSV</button>
+            <button onClick={exportExcel} style={{background:"#166534",border:"1px solid #22c55e",borderRadius:8,padding:"8px 16px",color:"#22c55e",fontFamily:"inherit",fontSize:13,fontWeight:600,cursor:"pointer",whiteSpace:"nowrap"}}>↓ Excel</button>
+          </div>
+
+          <div style={{background:S.surface,border:S.border,borderRadius:12,overflow:"hidden"}}>
+            <table style={{width:"100%",borderCollapse:"collapse"}}>
+              <thead><tr style={{background:S.surface2,borderBottom:S.border}}>
+                {["Fecha","Dept","Categoría","Descripción / Detalle","Trabajador","Mes","Total pagado","Neto real","Por",""].map(h=><th key={h} style={{padding:"10px 12px",textAlign:"left",fontSize:10,fontWeight:600,textTransform:"uppercase",letterSpacing:".08em",color:"#7a8399",whiteSpace:"nowrap"}}>{h}</th>)}
+              </tr></thead>
+              <tbody>
+                {!tableData.length&&<tr><td colSpan={10} style={{padding:"60px",textAlign:"center",color:"#4a5168"}}><div style={{fontSize:36,marginBottom:12}}>📋</div>Sin registros</td></tr>}
+                {tableData.map(e=>(
+                  <tr key={e.id} style={{borderBottom:S.border}} onMouseEnter={ev=>ev.currentTarget.style.background=S.surface2} onMouseLeave={ev=>ev.currentTarget.style.background="transparent"}>
+                    <td style={{padding:"12px",fontSize:12,color:"#7a8399",fontFamily:"monospace"}}>{e.date}</td>
+                    <td style={{padding:"12px"}}><span style={{background:`rgba(${deptRgb(e.dept)},.12)`,color:deptColor(e.dept),padding:"3px 10px",borderRadius:20,fontSize:11,fontWeight:600}}>{e.dept}</span></td>
+                    <td style={{padding:"12px"}}><span style={{background:S.surface2,border:S.border2,padding:"2px 8px",borderRadius:4,fontSize:11,color:"#7a8399",fontFamily:"monospace"}}>{e.cat}</span></td>
+                    <td style={{padding:"12px"}}>
+                      <div>{e.desc}</div>
+                      {e.isComision && (
+                        <div style={{display:"flex",gap:8,marginTop:5,flexWrap:"wrap"}}>
+                          <span style={{fontSize:11,color:"#7a8399"}}>Total: <strong style={{color:"#e8ecf4"}}>{e.qtTotal}</strong></span>
+                          <span style={{fontSize:11,color:"#22c55e"}}>✅ {e.qtCorrectas}</span>
+                          {e.qtIncorrectas>0 && <span style={{fontSize:11,color:"#ef4444"}}>❌ -{e.qtIncorrectas}</span>}
+                          <span style={{fontSize:11,color:"#7a8399"}}>× {fmtMoney(e.valorUnitario)}</span>
+                        </div>
+                      )}
+                      {e.notes&&<div style={{fontSize:11,color:"#4a5168",marginTop:2}}>{e.notes}</div>}
+                    </td>
+                    <td style={{padding:"12px",color:"#7a8399"}}>{e.worker}</td>
+                    <td style={{padding:"12px",color:"#7a8399"}}>{e.month}</td>
+                    <td style={{padding:"12px",fontFamily:"monospace",fontWeight:600}}>{fmtMoney(e.amount)}</td>
+                    <td style={{padding:"12px",fontFamily:"monospace",fontWeight:600,color:e.isComision&&e.netoComision<e.amount?"#22c55e":"#e8ecf4"}}>
+                      {e.isComision ? (
+                        <div>
+                          {fmtMoney(e.netoComision)}
+                          {e.qtIncorrectas>0&&<div style={{fontSize:11,color:"#ef4444",marginTop:2}}>-{fmtMoney(e.qtIncorrectas*e.valorUnitario)}</div>}
+                        </div>
+                      ) : fmtMoney(e.amount)}
+                    </td>
+                    <td style={{padding:"12px",fontSize:11,color:"#4a5168"}}>{e.by}</td>
+                    <td style={{padding:"12px"}}>
+                      {currentUser.role!=="reader"&&(
+                        <div style={{display:"flex",gap:4}}>
+                          <button onClick={()=>setModal(e)} style={{background:S.surface2,border:S.border2,borderRadius:5,width:26,height:26,display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",color:"#7a8399",fontSize:12}}>✎</button>
+                          <button onClick={()=>deleteEntry(e.id)} style={{background:S.surface2,border:S.border2,borderRadius:5,width:26,height:26,display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",color:"#7a8399",fontSize:12}}>✕</button>
+                        </div>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* ── FACTURACIÓN ── */}
+      {view==="billing" && (
+        <div style={{padding:24}}>
+          <div style={{display:"flex",alignItems:"center",gap:12,flexWrap:"wrap",marginBottom:20}}>
+            <div><div style={{fontWeight:700,fontSize:20}}>💰 Facturación</div><div style={{fontSize:13,color:"#7a8399",marginTop:2}}>Ingresos vs Gastos por departamento</div></div>
+            <div style={{marginLeft:"auto",display:"flex",alignItems:"center",gap:8}}>
+              <label style={{fontSize:12,color:"#7a8399"}}>Mes:</label>
+              <select value={billMonth} onChange={e=>setBillMonth(e.target.value)} style={{background:S.surface,border:S.border,borderRadius:8,padding:"7px 12px",color:"#e8ecf4",fontFamily:"inherit",fontSize:13,outline:"none",cursor:"pointer"}}>
+                {MONTHS.map(m=><option key={m}>{m}</option>)}
+              </select>
+              {currentUser.role==="admin"&&<button onClick={()=>setBillModal("new")} style={{background:"#22c55e",border:"none",borderRadius:8,padding:"8px 16px",color:"#fff",fontWeight:600,fontSize:13,cursor:"pointer",whiteSpace:"nowrap"}}>+ Registrar Factura</button>}
+            </div>
+          </div>
+
+          {/* Per-dept comparison cards */}
+          <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(300px,1fr))",gap:16,marginBottom:24}}>
+            {DEPTS.map(dept=>{
+              const billRec = filteredBilling.filter(b=>b.dept===dept);
+              const totalFacturado = billRec.reduce((s,b)=>s+b.total,0);
+              const totalGastos    = entries.filter(e=>e.dept===dept&&e.month===billMonth).reduce((s,e)=>s+e.amount,0);
+              const totalComPagado = entries.filter(e=>e.dept===dept&&e.month===billMonth&&e.isComision).reduce((s,e)=>s+e.amount,0);
+              const totalNeto      = entries.filter(e=>e.dept===dept&&e.month===billMonth&&e.isComision).reduce((s,e)=>s+(e.netoComision||e.amount),0);
+              const margen         = totalFacturado - totalGastos;
+              const color          = deptColor(dept);
+              return (
+                <div key={dept} style={{background:S.surface,border:`1px solid rgba(${deptRgb(dept)},.25)`,borderRadius:14,padding:24,position:"relative",overflow:"hidden"}}>
+                  <div style={{position:"absolute",top:0,left:0,right:0,height:3,background:color}}/>
+                  <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:16}}>
+                    <span style={{fontWeight:700,fontSize:16,color}}>{dept}</span>
+                    <span style={{fontSize:11,color:"#7a8399",background:S.surface2,border:S.border2,borderRadius:20,padding:"3px 10px"}}>{billMonth}</span>
+                  </div>
+                  <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:14}}>
+                    {[
+                      {label:"📥 Facturado",val:fmtMoney(totalFacturado),c:"#22c55e"},
+                      {label:"📤 Total Gastos",val:fmtMoney(totalGastos),c:"#ef4444"},
+                      {label:"💸 Com. pagadas",val:fmtMoney(totalComPagado),c:"#f97316"},
+                      {label:"✅ Com. correctas",val:fmtMoney(totalNeto),c:"#4f7fff"},
+                    ].map((item,i)=>(
+                      <div key={i} style={{background:S.surface2,borderRadius:8,padding:"10px 12px"}}>
+                        <div style={{fontSize:10,color:"#7a8399",marginBottom:4}}>{item.label}</div>
+                        <div style={{fontWeight:700,fontSize:14,color:item.c}}>{item.val}</div>
+                      </div>
+                    ))}
+                  </div>
+                  <div style={{background: margen>=0?"rgba(34,197,94,.08)":"rgba(239,68,68,.08)",border:`1px solid ${margen>=0?"rgba(34,197,94,.2)":"rgba(239,68,68,.2)"}`,borderRadius:8,padding:"12px 14px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                    <span style={{fontSize:12,color:"#7a8399"}}>Margen {billMonth}</span>
+                    <span style={{fontWeight:800,fontSize:18,color:margen>=0?"#22c55e":"#ef4444"}}>{margen>=0?"+":""}{fmtMoney(margen)}</span>
+                  </div>
+                  {billRec.length===0&&<div style={{marginTop:10,fontSize:11,color:"#4a5168",textAlign:"center"}}>Sin facturación registrada</div>}
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Billing records table */}
+          <div style={{background:S.surface,border:S.border,borderRadius:12,overflow:"hidden"}}>
+            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"16px 20px",borderBottom:S.border}}>
+              <div style={{fontWeight:600,fontSize:14}}>Registros de Facturación — {billMonth}</div>
+            </div>
+            <table style={{width:"100%",borderCollapse:"collapse"}}>
+              <thead><tr style={{background:S.surface2,borderBottom:S.border}}>
+                {["Departamento","Mes","Productos","Valor Unitario","Total Facturado","Notas",""].map(h=><th key={h} style={{padding:"10px 14px",textAlign:"left",fontSize:10,fontWeight:600,textTransform:"uppercase",letterSpacing:".08em",color:"#7a8399"}}>{h}</th>)}
+              </tr></thead>
+              <tbody>
+                {!filteredBilling.length&&<tr><td colSpan={7} style={{padding:"40px",textAlign:"center",color:"#4a5168",fontSize:13}}>No hay registros de facturación para {billMonth}</td></tr>}
+                {filteredBilling.map(b=>(
+                  <tr key={b.id} style={{borderBottom:S.border}} onMouseEnter={ev=>ev.currentTarget.style.background=S.surface2} onMouseLeave={ev=>ev.currentTarget.style.background="transparent"}>
+                    <td style={{padding:"12px 14px"}}><span style={{background:`rgba(${deptRgb(b.dept)},.12)`,color:deptColor(b.dept),padding:"3px 10px",borderRadius:20,fontSize:11,fontWeight:600}}>{b.dept}</span></td>
+                    <td style={{padding:"12px 14px",color:"#7a8399"}}>{b.month}</td>
+                    <td style={{padding:"12px 14px",fontFamily:"monospace",fontWeight:600}}>{b.productos.toLocaleString("es-CL")}</td>
+                    <td style={{padding:"12px 14px",fontFamily:"monospace"}}>{fmtMoney(b.valorUnitario)}</td>
+                    <td style={{padding:"12px 14px",fontFamily:"monospace",fontWeight:700,color:"#22c55e"}}>{fmtMoney(b.total)}</td>
+                    <td style={{padding:"12px 14px",fontSize:12,color:"#4a5168"}}>{b.notas||"—"}</td>
+                    <td style={{padding:"12px 14px"}}>
+                      {currentUser.role==="admin"&&(
+                        <div style={{display:"flex",gap:4}}>
+                          <button onClick={()=>setBillModal(b)} style={{background:S.surface2,border:S.border2,borderRadius:5,width:26,height:26,display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",color:"#7a8399",fontSize:12}}>✎</button>
+                          <button onClick={()=>deleteBilling(b.id)} style={{background:S.surface2,border:S.border2,borderRadius:5,width:26,height:26,display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",color:"#7a8399",fontSize:12}}>✕</button>
+                        </div>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {modal && <Modal onClose={()=>setModal(null)} onSave={saveEntry} entry={modal==="new"?null:modal} userDept={currentUser.dept}/>}
+      {billModal && <BillingModal onClose={()=>setBillModal(null)} onSave={saveBilling} entry={billModal==="new"?null:billModal}/>}
+      {toast && <Toast msg={toast.msg} type={toast.type}/>}
+    </div>
+  );
+}
