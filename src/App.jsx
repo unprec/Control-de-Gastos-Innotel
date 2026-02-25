@@ -303,21 +303,21 @@ function BillingModal({ onClose, onSave, entry }) {
 
         {/* Header labels */}
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10,marginBottom:6}}>
-          <div>{badge("NET","0,181,226")}</div>
+          <div>{badge("BAF","0,181,226")}</div>
           <div>{badge("TV","167,139,250")}</div>
           <div>{badge("VOZ","34,197,94")}</div>
         </div>
 
         {/* Qty row */}
         <div style={rowStyle}>
-          <div>{lbl("Cantidad NET")}<input style={fi} type="number" value={bafQty} onChange={e=>setBafQty(e.target.value)} placeholder="620"/></div>
+          <div>{lbl("Cantidad BAF")}<input style={fi} type="number" value={bafQty} onChange={e=>setBafQty(e.target.value)} placeholder="620"/></div>
           <div>{lbl("Cantidad TV")}<input style={fi} type="number" value={tvQty} onChange={e=>setTvQty(e.target.value)} placeholder="95"/></div>
           <div>{lbl("Cantidad VOZ")}<input style={fi} type="number" value={vozQty} onChange={e=>setVozQty(e.target.value)} placeholder="0"/></div>
         </div>
 
         {/* Val row */}
         <div style={rowStyle}>
-          <div>{lbl("Valor Unit. NET ($)")}<input style={fi} type="number" value={bafVal} onChange={e=>setBafVal(e.target.value)} placeholder="52000"/></div>
+          <div>{lbl("Valor Unit. BAF ($)")}<input style={fi} type="number" value={bafVal} onChange={e=>setBafVal(e.target.value)} placeholder="52000"/></div>
           <div>{lbl("Valor Unit. TV ($)")}<input style={fi} type="number" value={tvVal} onChange={e=>setTvVal(e.target.value)} placeholder="32000"/></div>
           <div>{lbl("Valor Unit. VOZ ($)")}<input style={fi} type="number" value={vozVal} onChange={e=>setVozVal(e.target.value)} placeholder="30000"/></div>
         </div>
@@ -325,7 +325,7 @@ function BillingModal({ onClose, onSave, entry }) {
         {/* Subtotals */}
         {(bafQty||tvQty||vozQty) && (
           <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10,marginBottom:16}}>
-            {[["NET",bafTotal,"0,181,226"],[" TV",tvTotal,"167,139,250"],["VOZ",vozTotal,"34,197,94"]].map(([lbl,val,c])=>(
+            {[["BAF",bafTotal,"0,181,226"],[" TV",tvTotal,"167,139,250"],["VOZ",vozTotal,"34,197,94"]].map(([lbl,val,c])=>(
               <div key={lbl} style={{background:"#0a0b0e",borderRadius:7,padding:"8px 10px",textAlign:"center"}}>
                 <div style={{fontSize:10,color:"#7a8399",marginBottom:2}}>{lbl}</div>
                 <div style={{fontWeight:700,fontSize:13,color:`rgb(${c})`}}>{fmtMoney(val)}</div>
@@ -336,7 +336,7 @@ function BillingModal({ onClose, onSave, entry }) {
 
         {/* Total calculado */}
         <div style={{background:"#0a0b0e",borderRadius:8,padding:"10px 14px",marginBottom:14,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-          <span style={{fontSize:12,color:"#7a8399"}}>Total calculado (NET+TV+VOZ)</span>
+          <span style={{fontSize:12,color:"#7a8399"}}>Total calculado (BAF+TV+VOZ)</span>
           <span style={{fontWeight:700,fontSize:16,color:"#e8ecf4"}}>{fmtMoney(totalCalculado)}</span>
         </div>
 
@@ -396,6 +396,125 @@ function BillingModal({ onClose, onSave, entry }) {
 function Toast({ msg, type }) {
   if (!msg) return null;
   return <div style={{position:"fixed",bottom:24,right:24,background:"#181b22",border:`1px solid ${type==="error"?"rgba(239,68,68,.3)":"rgba(34,197,94,.3)"}`,borderRadius:8,padding:"12px 20px",fontSize:13,color:type==="error"?"#ef4444":"#22c55e",zIndex:300}}>{msg}</div>;
+}
+
+// ── CARGO MODAL ──
+function CargoModal({ onClose, onSave, entry }) {
+  const [nombre,     setNombre]     = useState(entry?.nombre     || "");
+  const [tipo,       setTipo]       = useState(entry?.tipo       || "vendedor");
+  const [valorVenta, setValorVenta] = useState(entry?.valorVenta || "");
+  const fi  = { width:"100%",boxSizing:"border-box",background:"#181b22",border:"1px solid #1e2330",borderRadius:8,padding:"9px 12px",color:"#e8ecf4",fontFamily:"inherit",fontSize:13,outline:"none" };
+  const lbl = txt => <label style={{fontSize:11,color:"#7a8399",textTransform:"uppercase",letterSpacing:".08em",display:"block",marginBottom:6}}>{txt}</label>;
+  const save = () => {
+    if (!nombre.trim()) { alert("Ingresa el nombre del cargo"); return; }
+    onSave({ nombre:nombre.trim(), tipo, valorVenta: tipo==="vendedor" ? (parseFloat(valorVenta)||0) : 0 });
+  };
+  return (
+    <div onClick={e=>e.target===e.currentTarget&&onClose()} style={{position:"fixed",inset:0,background:"rgba(0,0,0,.75)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:200,backdropFilter:"blur(4px)"}}>
+      <div style={{background:"#111318",border:"1px solid #2a3045",borderRadius:16,padding:28,width:380,maxWidth:"95vw"}}>
+        <div style={{fontWeight:700,fontSize:17,marginBottom:20}}>{entry?"Editar Cargo":"Nuevo Cargo"}</div>
+        <div style={{display:"flex",flexDirection:"column",gap:14}}>
+          <div>{lbl("Nombre del cargo")}<input style={fi} value={nombre} onChange={e=>setNombre(e.target.value)} placeholder="Ej: Vendedor Senior"/></div>
+          <div>{lbl("Tipo")}
+            <select style={fi} value={tipo} onChange={e=>setTipo(e.target.value)}>
+              <option value="vendedor">Vendedor — sueldo base + ventas propias</option>
+              <option value="supervisor">Supervisor — sueldo base fijo</option>
+            </select>
+          </div>
+          {tipo==="vendedor" && (
+            <div>{lbl("Valor por venta ($)")}<input style={fi} type="number" value={valorVenta} onChange={e=>setValorVenta(e.target.value)} placeholder="70000"/></div>
+          )}
+        </div>
+        <div style={{display:"flex",gap:10,justifyContent:"flex-end",marginTop:24}}>
+          <button onClick={onClose} style={{background:"#181b22",border:"1px solid #2a3045",borderRadius:8,padding:"9px 20px",color:"#7a8399",cursor:"pointer",fontFamily:"inherit",fontSize:13}}>Cancelar</button>
+          <button onClick={save} style={{background:"#a78bfa",border:"none",borderRadius:8,padding:"9px 20px",color:"#fff",cursor:"pointer",fontWeight:600,fontSize:13}}>Guardar</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── TRABAJADOR MODAL ──
+function TrabajadorModal({ onClose, onSave, entry, cargos, trabajadores }) {
+  const [nombre,      setNombre]      = useState(entry?.nombre      || "");
+  const [cargoId,     setCargoId]     = useState(entry?.cargoId     || cargos[0]?.id || "");
+  const [sueldoBase,  setSueldoBase]  = useState(entry?.sueldoBase  || "");
+  const [ventas,      setVentas]      = useState(entry?.ventas      || "");
+  const [month,       setMonth]       = useState(entry?.month       || MONTHS[new Date().getMonth()]);
+
+  const cargo = cargos.find(c=>c.id===cargoId);
+  const esVendedor = cargo?.tipo === "vendedor";
+  const pagoVentas = esVendedor ? (parseFloat(ventas)||0) * (cargo?.valorVenta||0) : 0;
+  const sueldo     = parseFloat(sueldoBase)||0;
+  const diferencia = esVendedor ? pagoVentas - sueldo : 0;
+
+  const fi  = { width:"100%",boxSizing:"border-box",background:"#181b22",border:"1px solid #1e2330",borderRadius:8,padding:"9px 12px",color:"#e8ecf4",fontFamily:"inherit",fontSize:13,outline:"none" };
+  const lbl = txt => <label style={{fontSize:11,color:"#7a8399",textTransform:"uppercase",letterSpacing:".08em",display:"block",marginBottom:6}}>{txt}</label>;
+
+  const save = () => {
+    if (!nombre.trim()||!sueldoBase||!cargoId) { alert("Completa todos los campos"); return; }
+    onSave({ nombre:nombre.trim(), cargoId, cargoNombre:cargo?.nombre||"", tipo:cargo?.tipo||"vendedor",
+      sueldoBase:sueldo, ventas:parseFloat(ventas)||0, valorVenta:cargo?.valorVenta||0,
+      pagoVentas, diferencia, month });
+  };
+
+  return (
+    <div onClick={e=>e.target===e.currentTarget&&onClose()} style={{position:"fixed",inset:0,background:"rgba(0,0,0,.75)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:200,backdropFilter:"blur(4px)"}}>
+      <div style={{background:"#111318",border:"1px solid #2a3045",borderRadius:16,padding:28,width:440,maxWidth:"95vw"}}>
+        <div style={{fontWeight:700,fontSize:17,marginBottom:20}}>{entry?"Editar Trabajador":"Agregar Trabajador"}</div>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14}}>
+          <div style={{gridColumn:"1/-1"}}>{lbl("Nombre completo")}<input style={fi} value={nombre} onChange={e=>setNombre(e.target.value)} placeholder="Nombre del trabajador"/></div>
+          <div>{lbl("Cargo")}
+            <select style={fi} value={cargoId} onChange={e=>setCargoId(e.target.value)}>
+              {cargos.map(c=><option key={c.id} value={c.id}>{c.nombre}</option>)}
+            </select>
+          </div>
+          <div>{lbl("Mes")}
+            <select style={fi} value={month} onChange={e=>setMonth(e.target.value)}>
+              {MONTHS.map(m=><option key={m}>{m}</option>)}
+            </select>
+          </div>
+          <div style={{gridColumn:"1/-1"}}>{lbl("Sueldo base ($)")}<input style={fi} type="number" value={sueldoBase} onChange={e=>setSueldoBase(e.target.value)} placeholder="499375"/></div>
+          {esVendedor && (
+            <div style={{gridColumn:"1/-1"}}>
+              {lbl(`Cantidad de ventas del mes (× ${fmtMoney(cargo?.valorVenta||0)}/venta)`)}
+              <input style={fi} type="number" value={ventas} onChange={e=>setVentas(e.target.value)} placeholder="15"/>
+            </div>
+          )}
+        </div>
+
+        {/* Preview */}
+        {sueldoBase && (
+          <div style={{background:"#0a0b0e",borderRadius:10,padding:14,marginTop:16}}>
+            {esVendedor ? (
+              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10,textAlign:"center"}}>
+                {[
+                  ["Sueldo base", fmtMoney(sueldo), "#e8ecf4"],
+                  ["Pago ventas", fmtMoney(pagoVentas), "#4f7fff"],
+                  ["Diferencia",  (diferencia>=0?"+":"")+fmtMoney(diferencia), diferencia>=0?"#22c55e":"#ef4444"],
+                ].map(([l,v,c])=>(
+                  <div key={l}>
+                    <div style={{fontSize:10,color:"#7a8399",marginBottom:3}}>{l}</div>
+                    <div style={{fontWeight:700,fontSize:14,color:c}}>{v}</div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div style={{textAlign:"center"}}>
+                <div style={{fontSize:10,color:"#7a8399",marginBottom:3}}>TOTAL A PAGAR</div>
+                <div style={{fontWeight:800,fontSize:20,color:"#a78bfa"}}>{fmtMoney(sueldo)}</div>
+              </div>
+            )}
+          </div>
+        )}
+
+        <div style={{display:"flex",gap:10,justifyContent:"flex-end",marginTop:20}}>
+          <button onClick={onClose} style={{background:"#181b22",border:"1px solid #2a3045",borderRadius:8,padding:"9px 20px",color:"#7a8399",cursor:"pointer",fontFamily:"inherit",fontSize:13}}>Cancelar</button>
+          <button onClick={save} style={{background:"#a78bfa",border:"none",borderRadius:8,padding:"9px 20px",color:"#fff",cursor:"pointer",fontWeight:600,fontSize:13}}>Guardar</button>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 // ── CONFIRM MODAL ──
@@ -501,6 +620,17 @@ export default function App() {
   const [calidadCamada, setCalidadCamada] = useState("Noviembre");
   const [calidadSearch, setCalidadSearch] = useState("");
   const [calidadTab,    setCalidadTab]    = useState("resumen"); // resumen | vendedores | detalle
+  // ── REMUNERACIONES WOM ──
+  const [womTab,        setWomTab]        = useState("gastos"); // gastos | remuneraciones
+  const [remMonth,      setRemMonth]      = useState(MONTHS[new Date().getMonth()]);
+  const [remTab,        setRemTab]        = useState("resumen"); // resumen | trabajadores
+  const [cargos,        setCargos]        = useState([
+    { id:"c1", nombre:"Vendedor",   tipo:"vendedor",    valorVenta:70000 },
+    { id:"c2", nombre:"Supervisor", tipo:"supervisor",  valorVenta:0 },
+  ]);
+  const [trabajadores,  setTrabajadores]  = useState([]);
+  const [cargoModal,    setCargoModal]    = useState(null); // null | "new" | cargo obj
+  const [trabajadorModal, setTrabajadorModal] = useState(null); // null | "new" | trab obj
   const [selectedWeek, setSelectedWeek] = useState(0); // 0 = semana actual
   const [modal,      setModal]        = useState(null);
   const [billModal,  setBillModal]    = useState(null);
@@ -696,7 +826,7 @@ export default function App() {
     const billRows = [
       ["Facturación — Ingresos vs Gastos","","","","","","","","","","","",""],
       [],
-      ["Departamento","Mes","NET Qty","NET Val","TV Qty","TV Val","VOZ Qty","VOZ Val","Total Calculado","Total Factura","Diferencia","Total Gastos","Margen"],
+      ["Departamento","Mes","BAF Qty","BAF Val","TV Qty","TV Val","VOZ Qty","VOZ Val","Total Calculado","Total Factura","Diferencia","Total Gastos","Margen"],
     ];
     billing.forEach(b => {
       const gastos   = entries.filter(e=>e.dept===b.dept&&e.month===b.month).reduce((s,e)=>s+e.amount,0);
@@ -903,6 +1033,18 @@ export default function App() {
       {/* ── TABLE ── */}
       {view==="table" && (
         <div style={{padding:24,display:"flex",flexDirection:"column",gap:20}}>
+
+          {/* Sub-tabs para Wom */}
+          {activeDept==="Wom" && (
+            <div style={{display:"flex",gap:4,borderBottom:"1px solid #1e2330",paddingBottom:0,marginBottom:-8}}>
+              {[["gastos","📋 Gastos"],["remuneraciones","💜 Remuneraciones"]].map(([v,lbl])=>(
+                <button key={v} onClick={()=>setWomTab(v)} style={{background:"none",border:"none",borderBottom:`2px solid ${womTab===v?"#a78bfa":"transparent"}`,borderRadius:0,padding:"8px 18px",color:womTab===v?"#e8ecf4":"#7a8399",fontWeight:womTab===v?600:400,fontSize:13,cursor:"pointer",fontFamily:"inherit",marginBottom:-1}}>{lbl}</button>
+              ))}
+            </div>
+          )}
+
+          {/* Solo mostrar gastos si no estamos en remuneraciones */}
+          {(activeDept!=="Wom" || womTab==="gastos") && <>
           <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(170px,1fr))",gap:12}}>
             {[
               {color:"#4f7fff",label:"Total Gastos",val:fmtMoney(entries.reduce((s,e)=>s+e.amount,0)),sub:`${entries.length} registros`},
@@ -985,7 +1127,167 @@ export default function App() {
             </table>
           </div>
         </div>
+        </>}
       )}
+      {view==="table" && activeDept==="Wom" && womTab==="remuneraciones" && (() => {
+        const remData   = trabajadores.filter(t=>t.month===remMonth);
+        const vendedores = remData.filter(t=>t.tipo==="vendedor");
+        const supervisores = remData.filter(t=>t.tipo==="supervisor");
+        const totalSueldos = remData.reduce((s,t)=>s+t.sueldoBase,0);
+        const totalVentas  = vendedores.reduce((s,t)=>s+t.pagoVentas,0);
+        const cubren   = vendedores.filter(t=>t.diferencia>=0).length;
+        const deficit  = vendedores.filter(t=>t.diferencia<0).length;
+        const totalDif = vendedores.reduce((s,t)=>s+t.diferencia,0);
+
+        return (
+          <div style={{padding:24}}>
+            {/* Header */}
+            <div style={{display:"flex",alignItems:"center",gap:12,flexWrap:"wrap",marginBottom:16}}>
+              <div>
+                <div style={{fontWeight:700,fontSize:20}}>💜 Remuneraciones Wom</div>
+                <div style={{fontSize:13,color:"#7a8399",marginTop:2}}>Sueldos y cobertura de ventas</div>
+              </div>
+              <div style={{marginLeft:"auto",display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}>
+                <select value={remMonth} onChange={e=>setRemMonth(e.target.value)} style={{background:S.surface,border:S.border,borderRadius:8,padding:"7px 12px",color:"#e8ecf4",fontFamily:"inherit",fontSize:13,outline:"none",cursor:"pointer"}}>
+                  {MONTHS.map(m=><option key={m}>{m}</option>)}
+                </select>
+                {currentUser.role==="admin" && <>
+                  <button onClick={()=>setTrabajadorModal("new")} style={{background:"#a78bfa",border:"none",borderRadius:8,padding:"8px 14px",color:"#fff",fontWeight:600,fontSize:13,cursor:"pointer",whiteSpace:"nowrap"}}>+ Trabajador</button>
+                  <button onClick={()=>setCargoModal("list")} style={{background:S.surface2,border:"1px solid #a78bfa44",borderRadius:8,padding:"8px 14px",color:"#a78bfa",fontSize:13,cursor:"pointer",whiteSpace:"nowrap"}}>⚙ Cargos</button>
+                </>}
+              </div>
+            </div>
+
+            {/* Sub-tabs */}
+            <div style={{display:"flex",gap:4,marginBottom:20,borderBottom:"1px solid #1e2330"}}>
+              {[["resumen","📊 Resumen"],["trabajadores","👥 Trabajadores"]].map(([v,lbl])=>(
+                <button key={v} onClick={()=>setRemTab(v)} style={{background:"none",border:"none",borderBottom:`2px solid ${remTab===v?"#a78bfa":"transparent"}`,borderRadius:0,padding:"8px 16px",color:remTab===v?"#e8ecf4":"#7a8399",fontWeight:remTab===v?600:400,fontSize:13,cursor:"pointer",fontFamily:"inherit",marginBottom:-1}}>{lbl}</button>
+              ))}
+            </div>
+
+            {/* Empty state */}
+            {!remData.length && (
+              <div style={{textAlign:"center",padding:"80px 20px",color:"#4a5168"}}>
+                <div style={{fontSize:48,marginBottom:16}}>👥</div>
+                <div style={{fontSize:16,fontWeight:600,color:"#7a8399",marginBottom:8}}>Sin trabajadores registrados</div>
+                <div style={{fontSize:13}}>Presiona "+ Trabajador" para agregar el primer registro de {remMonth}</div>
+              </div>
+            )}
+
+            {/* RESUMEN */}
+            {remData.length>0 && remTab==="resumen" && (
+              <div style={{display:"flex",flexDirection:"column",gap:16}}>
+                {/* KPIs */}
+                <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(180px,1fr))",gap:12}}>
+                  {[
+                    {label:"Total trabajadores", val:remData.length, color:"#a78bfa", icon:"👥"},
+                    {label:"Total sueldos",       val:fmtMoney(totalSueldos), color:"#ef4444", icon:"💸"},
+                    {label:"Pago por ventas",     val:fmtMoney(totalVentas),  color:"#4f7fff", icon:"📈"},
+                    {label:"Vendedores que se cubren", val:`${cubren} de ${vendedores.length}`, color:"#22c55e", icon:"✅"},
+                    {label:"Con déficit",         val:deficit, color:deficit>0?"#ef4444":"#22c55e", icon:"⚠️"},
+                    {label:"Balance neto ventas", val:(totalDif>=0?"+":"")+fmtMoney(totalDif), color:totalDif>=0?"#22c55e":"#ef4444", icon:"⚖️"},
+                  ].map((k,i)=>(
+                    <div key={i} style={{background:S.surface,border:S.border,borderRadius:12,padding:"16px 18px",position:"relative",overflow:"hidden"}}>
+                      <div style={{position:"absolute",top:0,left:0,right:0,height:2,background:k.color}}/>
+                      <div style={{fontSize:10,color:"#7a8399",textTransform:"uppercase",letterSpacing:".08em",marginBottom:6}}>{k.icon} {k.label}</div>
+                      <div style={{fontWeight:800,fontSize:20,color:k.color}}>{k.val}</div>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Vendedores cobertura */}
+                {vendedores.length>0 && (
+                  <div style={{background:S.surface,border:S.border,borderRadius:12,padding:20}}>
+                    <div style={{fontWeight:600,fontSize:14,marginBottom:16}}>Cobertura por vendedor — {remMonth}</div>
+                    <div style={{display:"flex",flexDirection:"column",gap:10}}>
+                      {vendedores.sort((a,b)=>b.diferencia-a.diferencia).map(t=>{
+                        const pct = t.sueldoBase>0 ? Math.min(Math.round(t.pagoVentas/t.sueldoBase*100),150) : 0;
+                        return (
+                          <div key={t.id}>
+                            <div style={{display:"flex",justifyContent:"space-between",marginBottom:4,flexWrap:"wrap",gap:4}}>
+                              <span style={{fontSize:13,color:"#e8ecf4",fontWeight:500}}>{t.nombre}</span>
+                              <span style={{fontSize:12,color:t.diferencia>=0?"#22c55e":"#ef4444",fontWeight:700}}>
+                                {t.diferencia>=0?"✅":"❌"} {t.diferencia>=0?"+":""}{fmtMoney(t.diferencia)}
+                              </span>
+                            </div>
+                            <div style={{background:"#1e2330",borderRadius:6,height:8,overflow:"hidden"}}>
+                              <div style={{height:"100%",width:`${Math.min(pct,100)}%`,background:t.diferencia>=0?"#22c55e":"#ef4444",borderRadius:6,transition:"width .5s"}}/>
+                            </div>
+                            <div style={{display:"flex",justifyContent:"space-between",marginTop:3,fontSize:10,color:"#4a5168"}}>
+                              <span>{t.ventas} ventas × {fmtMoney(t.valorVenta)}</span>
+                              <span>{pct}% del sueldo cubierto</span>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {/* Supervisores */}
+                {supervisores.length>0 && (
+                  <div style={{background:S.surface,border:S.border,borderRadius:12,padding:20}}>
+                    <div style={{fontWeight:600,fontSize:14,marginBottom:14}}>Supervisores — {remMonth}</div>
+                    <div style={{display:"flex",flexDirection:"column",gap:8}}>
+                      {supervisores.map(t=>(
+                        <div key={t.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",background:S.surface2,borderRadius:8,padding:"12px 16px"}}>
+                          <div>
+                            <div style={{fontSize:13,fontWeight:600,color:"#e8ecf4"}}>{t.nombre}</div>
+                            <div style={{fontSize:11,color:"#7a8399",marginTop:2}}>{t.cargoNombre}</div>
+                          </div>
+                          <div style={{fontWeight:800,fontSize:16,color:"#a78bfa"}}>{fmtMoney(t.sueldoBase)}</div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* TRABAJADORES */}
+            {remData.length>0 && remTab==="trabajadores" && (
+              <div style={{background:S.surface,border:S.border,borderRadius:12,overflow:"hidden"}}>
+                <table style={{width:"100%",borderCollapse:"collapse"}}>
+                  <thead><tr style={{background:S.surface2,borderBottom:S.border}}>
+                    {["Nombre","Cargo","Mes","Sueldo Base","Ventas","Pago Ventas","Diferencia",""].map(h=>(
+                      <th key={h} style={{padding:"10px 14px",textAlign:"left",fontSize:10,fontWeight:600,textTransform:"uppercase",letterSpacing:".08em",color:"#7a8399",whiteSpace:"nowrap"}}>{h}</th>
+                    ))}
+                  </tr></thead>
+                  <tbody>
+                    {remData.map(t=>(
+                      <tr key={t.id} style={{borderBottom:S.border}} onMouseEnter={ev=>ev.currentTarget.style.background=S.surface2} onMouseLeave={ev=>ev.currentTarget.style.background="transparent"}>
+                        <td style={{padding:"12px 14px",fontWeight:600,color:"#e8ecf4"}}>{t.nombre}</td>
+                        <td style={{padding:"12px 14px"}}>
+                          <span style={{background:"rgba(167,139,250,.12)",color:"#a78bfa",padding:"3px 10px",borderRadius:20,fontSize:11,fontWeight:600}}>{t.cargoNombre}</span>
+                        </td>
+                        <td style={{padding:"12px 14px",color:"#7a8399",fontSize:12}}>{t.month}</td>
+                        <td style={{padding:"12px 14px",fontFamily:"monospace",fontWeight:600}}>{fmtMoney(t.sueldoBase)}</td>
+                        <td style={{padding:"12px 14px",fontFamily:"monospace",color:"#7a8399"}}>
+                          {t.tipo==="vendedor" ? `${t.ventas} × ${fmtMoney(t.valorVenta)}` : "—"}
+                        </td>
+                        <td style={{padding:"12px 14px",fontFamily:"monospace",color:"#4f7fff"}}>
+                          {t.tipo==="vendedor" ? fmtMoney(t.pagoVentas) : "—"}
+                        </td>
+                        <td style={{padding:"12px 14px",fontFamily:"monospace",fontWeight:700,color:t.tipo==="vendedor"?(t.diferencia>=0?"#22c55e":"#ef4444"):"#7a8399"}}>
+                          {t.tipo==="vendedor" ? `${t.diferencia>=0?"+":""}${fmtMoney(t.diferencia)}` : "—"}
+                        </td>
+                        <td style={{padding:"12px 14px"}}>
+                          {currentUser.role==="admin" && (
+                            <div style={{display:"flex",gap:4}}>
+                              <button onClick={()=>setTrabajadorModal(t)} style={{background:S.surface2,border:S.border2,borderRadius:5,width:26,height:26,display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",color:"#7a8399",fontSize:12}}>✎</button>
+                              <button onClick={()=>askConfirm(`¿Eliminar a ${t.nombre}?`,()=>{setTrabajadores(p=>p.filter(x=>x.id!==t.id));showToast("Eliminado");setConfirmModal(null);})} style={{background:S.surface2,border:S.border2,borderRadius:5,width:26,height:26,display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",color:"#7a8399",fontSize:12}}>✕</button>
+                            </div>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        );
+      })()}
 
       {/* ── FACTURACIÓN ── */}
       {view==="billing" && (
@@ -1048,7 +1350,7 @@ export default function App() {
             </div>
             <table style={{width:"100%",borderCollapse:"collapse"}}>
               <thead><tr style={{background:S.surface2,borderBottom:S.border}}>
-                {["Depto","Mes","NET","TV","VOZ","Total Calc.","Total Factura","Reliq.","Total Final","Notas",""].map(h=><th key={h} style={{padding:"10px 12px",textAlign:"left",fontSize:10,fontWeight:600,textTransform:"uppercase",letterSpacing:".08em",color:"#7a8399"}}>{h}</th>)}
+                {["Depto","Mes","BAF","TV","VOZ","Total Calc.","Total Factura","Reliq.","Total Final","Notas",""].map(h=><th key={h} style={{padding:"10px 12px",textAlign:"left",fontSize:10,fontWeight:600,textTransform:"uppercase",letterSpacing:".08em",color:"#7a8399"}}>{h}</th>)}
               </tr></thead>
               <tbody>
                 {!filteredBilling.length&&<tr><td colSpan={10} style={{padding:"40px",textAlign:"center",color:"#4a5168",fontSize:13}}>No hay registros de facturación para {billMonth}</td></tr>}
@@ -1416,6 +1718,41 @@ export default function App() {
       }} entry={userModal==="new"?null:userModal}/>}
       {toast && <Toast msg={toast.msg} type={toast.type}/>}
       {confirmModal && <ConfirmModal msg={confirmModal.msg} onConfirm={confirmModal.onConfirm} onCancel={()=>setConfirmModal(null)}/>}
+      {cargoModal==="list" && (
+        <div onClick={e=>e.target===e.currentTarget&&setCargoModal(null)} style={{position:"fixed",inset:0,background:"rgba(0,0,0,.75)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:200,backdropFilter:"blur(4px)"}}>
+          <div style={{background:"#111318",border:"1px solid #2a3045",borderRadius:16,padding:28,width:440,maxWidth:"95vw"}}>
+            <div style={{fontWeight:700,fontSize:17,marginBottom:20}}>⚙️ Gestión de Cargos</div>
+            <div style={{display:"flex",flexDirection:"column",gap:8,marginBottom:16}}>
+              {cargos.map(c=>(
+                <div key={c.id} style={{display:"flex",alignItems:"center",justifyContent:"space-between",background:"#181b22",borderRadius:8,padding:"12px 14px"}}>
+                  <div>
+                    <div style={{fontWeight:600,color:"#e8ecf4",fontSize:13}}>{c.nombre}</div>
+                    <div style={{fontSize:11,color:"#7a8399",marginTop:2}}>{c.tipo==="vendedor"?`Vendedor · ${fmtMoney(c.valorVenta)}/venta`:"Supervisor · sueldo fijo"}</div>
+                  </div>
+                  <div style={{display:"flex",gap:4}}>
+                    <button onClick={()=>setCargoModal(c)} style={{background:"#1e2330",border:"1px solid #2a3045",borderRadius:5,width:26,height:26,display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",color:"#7a8399",fontSize:12}}>✎</button>
+                    <button onClick={()=>askConfirm(`¿Eliminar cargo "${c.nombre}"?`,()=>{setCargos(p=>p.filter(x=>x.id!==c.id));showToast("Cargo eliminado");setConfirmModal(null);})} style={{background:"#1e2330",border:"1px solid #2a3045",borderRadius:5,width:26,height:26,display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",color:"#7a8399",fontSize:12}}>✕</button>
+                  </div>
+                </div>
+              ))}
+            </div>
+            <div style={{display:"flex",gap:8,justifyContent:"space-between"}}>
+              <button onClick={()=>setCargoModal("new")} style={{background:"#a78bfa",border:"none",borderRadius:8,padding:"9px 16px",color:"#fff",fontWeight:600,fontSize:13,cursor:"pointer"}}>+ Nuevo cargo</button>
+              <button onClick={()=>setCargoModal(null)} style={{background:"#181b22",border:"1px solid #2a3045",borderRadius:8,padding:"9px 20px",color:"#7a8399",cursor:"pointer",fontFamily:"inherit",fontSize:13}}>Cerrar</button>
+            </div>
+          </div>
+        </div>
+      )}
+      {cargoModal && cargoModal!=="list" && <CargoModal onClose={()=>setCargoModal(null)} entry={cargoModal==="new"?null:cargoModal} onSave={data=>{
+        if(cargoModal==="new"){ setCargos(p=>[...p,{id:"c"+Date.now(),...data}]); showToast("Cargo creado ✓"); }
+        else { setCargos(p=>p.map(c=>c.id===cargoModal.id?{...c,...data}:c)); showToast("Cargo actualizado ✓"); }
+        setCargoModal(null);
+      }}/>}
+      {trabajadorModal && <TrabajadorModal onClose={()=>setTrabajadorModal(null)} entry={trabajadorModal==="new"?null:trabajadorModal} cargos={cargos} trabajadores={trabajadores} onSave={data=>{
+        if(trabajadorModal==="new"){ setTrabajadores(p=>[...p,{id:"t"+Date.now(),...data}]); showToast("Trabajador agregado ✓"); }
+        else { setTrabajadores(p=>p.map(t=>t.id===trabajadorModal.id?{...t,...data}:t)); showToast("Trabajador actualizado ✓"); }
+        setTrabajadorModal(null);
+      }}/> }
     </div>
   );
 }
