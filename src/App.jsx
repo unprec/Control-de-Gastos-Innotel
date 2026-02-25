@@ -102,7 +102,7 @@ const parseCalidadExcel = (rows) => {
     mes1:    String(r[idx.mes1]||"Sin datos"),
     mes2:    String(r[idx.mes2]||"Sin datos"),
     mes3:    String(r[idx.mes3]||"Sin datos"),
-    camada:  String(r[idx.mes]||"Sin datos"),
+    Mes:  String(r[idx.mes]||"Sin datos"),
   }));
 };
 
@@ -1098,22 +1098,22 @@ export default function App() {
 
       {/* ── CALIDAD ── */}
       {view==="calidad" && (() => {
-        const camadaRows = calidadData[calidadCamada] || [];
-        const total = camadaRows.length;
-        const pagM1 = camadaRows.filter(r=>r.mes1===PAGO).length;
-        const pagM2 = camadaRows.filter(r=>r.mes2===PAGO).length;
-        const pagM3 = camadaRows.filter(r=>r.mes3===PAGO).length;
-        const pagTres = camadaRows.filter(r=>r.mes1===PAGO&&r.mes2===PAGO&&r.mes3===PAGO).length;
+        const MesRows = calidadData[calidadCamada] || [];
+        const total = MesRows.length;
+        const pagM1 = MesRows.filter(r=>r.mes1===PAGO).length;
+        const pagM2 = MesRows.filter(r=>r.mes2===PAGO).length;
+        const pagM3 = MesRows.filter(r=>r.mes3===PAGO).length;
+        const pagTres = MesRows.filter(r=>r.mes1===PAGO&&r.mes2===PAGO&&r.mes3===PAGO).length;
         const pctM1  = total ? Math.round(pagM1/total*100) : 0;
         const pctM2  = total ? Math.round(pagM2/total*100) : 0;
         const pctM3  = total ? Math.round(pagM3/total*100) : 0;
         const pctBono = total ? Math.round(pagTres/total*100) : 0;
-        const tieneM3 = camadaRows.some(r=>r.mes3!=="Sin datos");
-        const tieneM2 = camadaRows.some(r=>r.mes2!=="Sin datos");
+        const tieneM3 = MesRows.some(r=>r.mes3!=="Sin datos");
+        const tieneM2 = MesRows.some(r=>r.mes2!=="Sin datos");
 
         // Ranking vendedores
         const vendMap = {};
-        camadaRows.forEach(r=>{
+        MesRows.forEach(r=>{
           const v = r.usuario||"Sin asignar";
           if(!vendMap[v]) vendMap[v]={nombre:v,total:0,m1:0,m2:0,m3:0,bono:0};
           vendMap[v].total++;
@@ -1127,7 +1127,7 @@ export default function App() {
         );
 
         // Detalle filtrado
-        const detalle = camadaRows.filter(r=>
+        const detalle = MesRows.filter(r=>
           !calidadSearch || r.usuario.toLowerCase().includes(calidadSearch.toLowerCase()) ||
           r.rut.includes(calidadSearch) || r.orden.includes(calidadSearch)
         );
@@ -1149,17 +1149,17 @@ export default function App() {
           const rows = XLSX.utils.sheet_to_json(ws,{header:1,defval:""});
           const parsed = parseCalidadExcel(rows);
           if(!parsed.length){showToast("No se encontraron datos válidos","error");return;}
-          // group by camada
+          // group by Mes
           const byCamada = {};
-          parsed.forEach(r=>{ if(!byCamada[r.camada]) byCamada[r.camada]=[]; byCamada[r.camada].push(r); });
+          parsed.forEach(r=>{ if(!byCamada[r.Mes]) byCamada[r.Mes]=[]; byCamada[r.Mes].push(r); });
           setCalidadData(prev=>({...prev,...byCamada}));
-          const camadas = Object.keys(byCamada).join(", ");
-          showToast(`${parsed.length} registros cargados (${camadas}) ✓`);
+          const Mess = Object.keys(byCamada).join(", ");
+          showToast(`${parsed.length} registros cargados (${Mess}) ✓`);
           if(Object.keys(byCamada)[0]) setCalidadCamada(Object.keys(byCamada)[0]);
           e.target.value="";
         };
 
-        const camadas = Object.keys(calidadData);
+        const Mess = Object.keys(calidadData);
 
         return (
           <div style={{padding:24}}>
@@ -1167,13 +1167,13 @@ export default function App() {
             <div style={{display:"flex",alignItems:"center",gap:12,flexWrap:"wrap",marginBottom:20}}>
               <div>
                 <div style={{fontWeight:700,fontSize:20}}>⭐ Control de Calidad</div>
-                <div style={{fontSize:13,color:"#7a8399",marginTop:2}}>Movistar — Seguimiento de pagos por camada</div>
+                <div style={{fontSize:13,color:"#7a8399",marginTop:2}}>Movistar — Seguimiento de pagos por Mes</div>
               </div>
               <div style={{marginLeft:"auto",display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}>
-                {camadas.length>0 && (
+                {Mess.length>0 && (
                   <select value={calidadCamada} onChange={e=>setCalidadCamada(e.target.value)}
                     style={{background:S.surface,border:S.border,borderRadius:8,padding:"7px 12px",color:"#e8ecf4",fontFamily:"inherit",fontSize:13,outline:"none",cursor:"pointer"}}>
-                    {camadas.map(c=><option key={c}>{c}</option>)}
+                    {Mess.map(c=><option key={c}>{c}</option>)}
                   </select>
                 )}
                 <label style={{background:"#4f7fff",border:"none",borderRadius:8,padding:"8px 16px",color:"#fff",fontWeight:600,fontSize:13,cursor:"pointer",whiteSpace:"nowrap"}}>
@@ -1228,7 +1228,7 @@ export default function App() {
                         <span style={{fontWeight:900,fontSize:48,color:pctBono>=70?"#22c55e":pctBono>=50?"#eab308":"#ef4444"}}>{tieneM3?`${pctBono}%`:"—"}</span>
                         {tieneM3&&<span style={{fontSize:14,color:"#7a8399"}}>{pagTres} de {total} clientes</span>}
                       </div>
-                      {!tieneM3 && <div style={{fontSize:13,color:"#7a8399",marginTop:4}}>Aún no hay datos del Mes 3 para esta camada</div>}
+                      {!tieneM3 && <div style={{fontSize:13,color:"#7a8399",marginTop:4}}>Aún no hay datos del Mes 3 para esta Mes</div>}
                     </div>
                     {/* Mini barra de progreso */}
                     {tieneM3 && (
