@@ -403,15 +403,11 @@ function CargoModal({ onClose, onSave, entry }) {
   const [nombre,     setNombre]     = useState(entry?.nombre     || "");
   const [tipo,       setTipo]       = useState(entry?.tipo       || "vendedor");
   const [valorVenta, setValorVenta] = useState(entry?.valorVenta || "");
-  const [bonoVenta,  setBonoVenta]  = useState(entry?.bonoVenta  || "");
   const fi  = { width:"100%",boxSizing:"border-box",background:"#181b22",border:"1px solid #1e2330",borderRadius:8,padding:"9px 12px",color:"#e8ecf4",fontFamily:"inherit",fontSize:13,outline:"none" };
   const lbl = txt => <label style={{fontSize:11,color:"#7a8399",textTransform:"uppercase",letterSpacing:".08em",display:"block",marginBottom:6}}>{txt}</label>;
   const save = () => {
     if (!nombre.trim()) { alert("Ingresa el nombre del cargo"); return; }
-    onSave({ nombre:nombre.trim(), tipo,
-      valorVenta: tipo==="vendedor" ? (parseFloat(valorVenta)||0) : 0,
-      bonoVenta:  tipo==="supervisor" ? (parseFloat(bonoVenta)||0) : 0,
-    });
+    onSave({ nombre:nombre.trim(), tipo, valorVenta: tipo==="vendedor" ? (parseFloat(valorVenta)||0) : 0 });
   };
   return (
     <div onClick={e=>e.target===e.currentTarget&&onClose()} style={{position:"fixed",inset:0,background:"rgba(0,0,0,.75)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:200,backdropFilter:"blur(4px)"}}>
@@ -422,14 +418,11 @@ function CargoModal({ onClose, onSave, entry }) {
           <div>{lbl("Tipo")}
             <select style={fi} value={tipo} onChange={e=>setTipo(e.target.value)}>
               <option value="vendedor">Vendedor — sueldo base + ventas propias</option>
-              <option value="supervisor">Supervisor — sueldo base + bono equipo</option>
+              <option value="supervisor">Supervisor — sueldo base fijo</option>
             </select>
           </div>
           {tipo==="vendedor" && (
-            <div>{lbl("Valor por venta ($) — lo que paga Wom")}<input style={fi} type="number" value={valorVenta} onChange={e=>setValorVenta(e.target.value)} placeholder="70000"/></div>
-          )}
-          {tipo==="supervisor" && (
-            <div>{lbl("Bono por venta del equipo ($)")}<input style={fi} type="number" value={bonoVenta} onChange={e=>setBonoVenta(e.target.value)} placeholder="4000"/></div>
+            <div>{lbl("Valor por venta ($)")}<input style={fi} type="number" value={valorVenta} onChange={e=>setValorVenta(e.target.value)} placeholder="70000"/></div>
           )}
         </div>
         <div style={{display:"flex",gap:10,justifyContent:"flex-end",marginTop:24}}>
@@ -448,28 +441,12 @@ function TrabajadorModal({ onClose, onSave, entry, cargos, trabajadores }) {
   const [sueldoBase,  setSueldoBase]  = useState(entry?.sueldoBase  || "");
   const [ventas,      setVentas]      = useState(entry?.ventas      || "");
   const [month,       setMonth]       = useState(entry?.month       || MONTHS[new Date().getMonth()]);
-  const [vendedoresIds, setVendedoresIds] = useState(entry?.vendedoresIds || []);
 
-  const cargo      = cargos.find(c=>c.id===cargoId);
-  const esVendedor   = cargo?.tipo === "vendedor";
-  const esSupervisor = cargo?.tipo === "supervisor";
-
-  // Vendedores disponibles del mismo mes (excluye supervisores y el propio trabajador)
-  const vendedoresDisp   = trabajadores.filter(t => t.tipo === "vendedor" && t.month === month && t.id !== entry?.id);
-  const vendedoresEquipo = vendedoresDisp.filter(t => vendedoresIds.includes(t.id));
-  const ventasEquipo     = vendedoresEquipo.reduce((s,t)=>s+t.ventas,0);
-  const sumaDifVendedores = vendedoresEquipo.reduce((s,t)=>s+t.diferencia,0);
-  const bonoVenta        = cargo?.bonoVenta || 0;
-  const sueldo           = parseFloat(sueldoBase)||0;
-  const totalSupervisor  = esSupervisor ? sueldo + (ventasEquipo * bonoVenta) : 0;
-  const costoPorVentaSup = esSupervisor && ventasEquipo>0 ? totalSupervisor / ventasEquipo : 0;
-  const diferenciaSup    = esSupervisor ? sumaDifVendedores - totalSupervisor : 0;
-
-  const pagoVentas    = esVendedor ? (parseFloat(ventas)||0) * (cargo?.valorVenta||0) : 0;
-  const costoPorVenta = esVendedor && (parseFloat(ventas)||0) > 0 ? sueldo / (parseFloat(ventas)||1) : 0;
-  const diferencia    = esVendedor ? pagoVentas - sueldo : 0;
-
-  const toggleVendedor = id => setVendedoresIds(p => p.includes(id) ? p.filter(x=>x!==id) : [...p,id]);
+  const cargo = cargos.find(c=>c.id===cargoId);
+  const esVendedor = cargo?.tipo === "vendedor";
+  const pagoVentas = esVendedor ? (parseFloat(ventas)||0) * (cargo?.valorVenta||0) : 0;
+  const sueldo     = parseFloat(sueldoBase)||0;
+  const diferencia = esVendedor ? pagoVentas - sueldo : 0;
 
   const fi  = { width:"100%",boxSizing:"border-box",background:"#181b22",border:"1px solid #1e2330",borderRadius:8,padding:"9px 12px",color:"#e8ecf4",fontFamily:"inherit",fontSize:13,outline:"none" };
   const lbl = txt => <label style={{fontSize:11,color:"#7a8399",textTransform:"uppercase",letterSpacing:".08em",display:"block",marginBottom:6}}>{txt}</label>;
@@ -478,20 +455,12 @@ function TrabajadorModal({ onClose, onSave, entry, cargos, trabajadores }) {
     if (!nombre.trim()||!sueldoBase||!cargoId) { alert("Completa todos los campos"); return; }
     onSave({ nombre:nombre.trim(), cargoId, cargoNombre:cargo?.nombre||"", tipo:cargo?.tipo||"vendedor",
       sueldoBase:sueldo, ventas:parseFloat(ventas)||0, valorVenta:cargo?.valorVenta||0,
-      pagoVentas: esVendedor ? pagoVentas : ventasEquipo * bonoVenta,
-      costoPorVenta: esVendedor ? costoPorVenta : costoPorVentaSup,
-      diferencia: esVendedor ? diferencia : diferenciaSup,
-      totalSupervisor: esSupervisor ? totalSupervisor : 0,
-      sumaDifVendedores: esSupervisor ? sumaDifVendedores : 0,
-      vendedoresIds: esSupervisor ? vendedoresIds : [],
-      ventasEquipo: esSupervisor ? ventasEquipo : 0,
-      bonoVenta: esSupervisor ? bonoVenta : 0,
-      month });
+      pagoVentas, diferencia, month });
   };
 
   return (
     <div onClick={e=>e.target===e.currentTarget&&onClose()} style={{position:"fixed",inset:0,background:"rgba(0,0,0,.75)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:200,backdropFilter:"blur(4px)"}}>
-      <div style={{background:"#111318",border:"1px solid #2a3045",borderRadius:16,padding:28,width:480,maxWidth:"95vw",maxHeight:"90vh",overflowY:"auto"}}>
+      <div style={{background:"#111318",border:"1px solid #2a3045",borderRadius:16,padding:28,width:440,maxWidth:"95vw"}}>
         <div style={{fontWeight:700,fontSize:17,marginBottom:20}}>{entry?"Editar Trabajador":"Agregar Trabajador"}</div>
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14}}>
           <div style={{gridColumn:"1/-1"}}>{lbl("Nombre completo")}<input style={fi} value={nombre} onChange={e=>setNombre(e.target.value)} placeholder="Nombre del trabajador"/></div>
@@ -512,52 +481,22 @@ function TrabajadorModal({ onClose, onSave, entry, cargos, trabajadores }) {
               <input style={fi} type="number" value={ventas} onChange={e=>setVentas(e.target.value)} placeholder="15"/>
             </div>
           )}
-          {esSupervisor && (
-            <div style={{gridColumn:"1/-1"}}>
-              {lbl(`Vendedores del equipo (bono: ${fmtMoney(bonoVenta)}/venta)`)}
-              {vendedoresDisp.length===0 ? (
-                <div style={{background:"#181b22",border:"1px solid #1e2330",borderRadius:8,padding:"12px",fontSize:12,color:"#4a5168"}}>
-                  No hay vendedores registrados para {month}. Agrégalos primero.
-                </div>
-              ) : (
-                <div style={{background:"#181b22",border:"1px solid #1e2330",borderRadius:8,padding:10,display:"flex",flexDirection:"column",gap:6}}>
-                  {vendedoresDisp.map(v=>(
-                    <label key={v.id} style={{display:"flex",alignItems:"center",gap:10,cursor:"pointer",padding:"6px 8px",borderRadius:6,background:vendedoresIds.includes(v.id)?"rgba(167,139,250,.1)":"transparent"}}>
-                      <input type="checkbox" checked={vendedoresIds.includes(v.id)} onChange={()=>toggleVendedor(v.id)} style={{accentColor:"#a78bfa",width:14,height:14}}/>
-                      <span style={{fontSize:13,color:"#e8ecf4",flex:1}}>{v.nombre}</span>
-                      <span style={{fontSize:11,color:"#7a8399"}}>{v.ventas} ventas</span>
-                    </label>
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
         </div>
 
         {/* Preview */}
         {sueldoBase && (
           <div style={{background:"#0a0b0e",borderRadius:10,padding:14,marginTop:16}}>
             {esVendedor ? (
-              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr 1fr",gap:10,textAlign:"center"}}>
+              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10,textAlign:"center"}}>
                 {[
-                  ["Sueldo base",  fmtMoney(sueldo),                                    "#e8ecf4"],
-                  ["Costo/venta",  costoPorVenta>0?fmtMoney(Math.round(costoPorVenta)):"—", "#eab308"],
-                  ["Pago Wom",     fmtMoney(pagoVentas),                                "#4f7fff"],
-                  ["Diferencia",   (diferencia>=0?"+":"")+fmtMoney(diferencia),         diferencia>=0?"#22c55e":"#ef4444"],
+                  ["Sueldo base", fmtMoney(sueldo), "#e8ecf4"],
+                  ["Pago ventas", fmtMoney(pagoVentas), "#4f7fff"],
+                  ["Diferencia",  (diferencia>=0?"+":"")+fmtMoney(diferencia), diferencia>=0?"#22c55e":"#ef4444"],
                 ].map(([l,v,c])=>(
-                  <div key={l}><div style={{fontSize:10,color:"#7a8399",marginBottom:3}}>{l}</div><div style={{fontWeight:700,fontSize:14,color:c}}>{v}</div></div>
-                ))}
-              </div>
-            ) : esSupervisor ? (
-              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr 1fr 1fr",gap:10,textAlign:"center"}}>
-                {[
-                  ["Sueldo base",    fmtMoney(sueldo),                                              "#e8ecf4"],
-                  ["Bono equipo",    fmtMoney(ventasEquipo*bonoVenta),                              "#a78bfa"],
-                  ["Total sup.",     fmtMoney(totalSupervisor),                                     "#f97316"],
-                  ["Σ Dif. vendedores", fmtMoney(sumaDifVendedores),                               "#4f7fff"],
-                  ["Diferencia",     (diferenciaSup>=0?"+":"")+fmtMoney(diferenciaSup),             diferenciaSup>=0?"#22c55e":"#ef4444"],
-                ].map(([l,v,c])=>(
-                  <div key={l}><div style={{fontSize:9,color:"#7a8399",marginBottom:3}}>{l}</div><div style={{fontWeight:700,fontSize:13,color:c}}>{v}</div></div>
+                  <div key={l}>
+                    <div style={{fontSize:10,color:"#7a8399",marginBottom:3}}>{l}</div>
+                    <div style={{fontWeight:700,fontSize:14,color:c}}>{v}</div>
+                  </div>
                 ))}
               </div>
             ) : (
@@ -686,8 +625,8 @@ export default function App() {
   const [remMonth,      setRemMonth]      = useState(MONTHS[new Date().getMonth()]);
   const [remTab,        setRemTab]        = useState("resumen"); // resumen | trabajadores
   const [cargos,        setCargos]        = useState([
-    { id:"c1", nombre:"Vendedor",   tipo:"vendedor",    valorVenta:70000, bonoVenta:0 },
-    { id:"c2", nombre:"Supervisor", tipo:"supervisor",  valorVenta:0,     bonoVenta:4000 },
+    { id:"c1", nombre:"Vendedor",   tipo:"vendedor",    valorVenta:70000 },
+    { id:"c2", nombre:"Supervisor", tipo:"supervisor",  valorVenta:0 },
   ]);
   const [trabajadores,  setTrabajadores]  = useState([]);
   const [cargoModal,    setCargoModal]    = useState(null); // null | "new" | cargo obj
@@ -1092,8 +1031,20 @@ export default function App() {
       )}
 
       {/* ── TABLE ── */}
-      {view==="table" && activeDept!=="Wom" && (
+      {view==="table" && (
         <div style={{padding:24,display:"flex",flexDirection:"column",gap:20}}>
+
+          {/* Sub-tabs para Wom */}
+          {activeDept==="Wom" && (
+            <div style={{display:"flex",gap:4,borderBottom:"1px solid #1e2330",paddingBottom:0,marginBottom:-8}}>
+              {[["gastos","📋 Gastos"],["remuneraciones","💜 Remuneraciones"]].map(([v,lbl])=>(
+                <button key={v} onClick={()=>setWomTab(v)} style={{background:"none",border:"none",borderBottom:`2px solid ${womTab===v?"#a78bfa":"transparent"}`,borderRadius:0,padding:"8px 18px",color:womTab===v?"#e8ecf4":"#7a8399",fontWeight:womTab===v?600:400,fontSize:13,cursor:"pointer",fontFamily:"inherit",marginBottom:-1}}>{lbl}</button>
+              ))}
+            </div>
+          )}
+
+          {/* Solo mostrar gastos si no estamos en remuneraciones */}
+          {(activeDept!=="Wom" || womTab==="gastos") && <>
           <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(170px,1fr))",gap:12}}>
             {[
               {color:"#4f7fff",label:"Total Gastos",val:fmtMoney(entries.reduce((s,e)=>s+e.amount,0)),sub:`${entries.length} registros`},
@@ -1176,89 +1127,9 @@ export default function App() {
             </table>
           </div>
         </div>
+        </>}
       )}
-
-      {/* ── WOM GASTOS ── */}
-      {view==="table" && activeDept==="Wom" && womTab==="gastos" && (
-        <div style={{padding:24,display:"flex",flexDirection:"column",gap:20}}>
-          <div style={{display:"flex",gap:4,borderBottom:"1px solid #1e2330",marginBottom:-8}}>
-            {[["gastos","📋 Gastos"],["remuneraciones","💜 Remuneraciones"]].map(([v,lbl])=>(
-              <button key={v} onClick={()=>setWomTab(v)} style={{background:"none",border:"none",borderBottom:`2px solid ${womTab===v?"#a78bfa":"transparent"}`,borderRadius:0,padding:"8px 18px",color:womTab===v?"#e8ecf4":"#7a8399",fontWeight:womTab===v?600:400,fontSize:13,cursor:"pointer",fontFamily:"inherit",marginBottom:-1}}>{lbl}</button>
-            ))}
-          </div>
-          <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(170px,1fr))",gap:12}}>
-            {[
-              {color:"#4f7fff",label:"Total Gastos",val:fmtMoney(entries.reduce((s,e)=>s+e.amount,0)),sub:`${entries.length} registros`},
-              {color:"#00b5e2",label:"Movistar",val:fmtMoney(entries.filter(e=>e.dept==="Movistar").reduce((s,e)=>s+e.amount,0)),sub:`${entries.filter(e=>e.dept==="Movistar").length} reg.`},
-              {color:"#ff6b35",label:"Entel",val:fmtMoney(entries.filter(e=>e.dept==="Entel").reduce((s,e)=>s+e.amount,0)),sub:`${entries.filter(e=>e.dept==="Entel").length} reg.`},
-              {color:"#a78bfa",label:"Wom",val:fmtMoney(entries.filter(e=>e.dept==="Wom").reduce((s,e)=>s+e.amount,0)),sub:`${entries.filter(e=>e.dept==="Wom").length} reg.`},
-            ].map((s,i)=>(
-              <div key={i} style={{background:S.surface,border:S.border,borderRadius:12,padding:"18px 20px",position:"relative",overflow:"hidden"}}>
-                <div style={{position:"absolute",top:0,left:0,right:0,height:2,background:s.color}}/>
-                <div style={{fontSize:10,textTransform:"uppercase",letterSpacing:".1em",color:"#7a8399",marginBottom:8,fontWeight:500}}>{s.label}</div>
-                <div style={{fontWeight:700,fontSize:22,letterSpacing:-.5}}>{s.val}</div>
-                <div style={{fontSize:11,color:"#4a5168",marginTop:4}}>{s.sub}</div>
-              </div>
-            ))}
-          </div>
-          <div style={{display:"flex",alignItems:"center",gap:10,flexWrap:"wrap"}}>
-            <div style={{display:"flex",alignItems:"center",gap:8,background:S.surface,border:S.border,borderRadius:8,padding:"7px 12px",flex:1,minWidth:180,maxWidth:300}}>
-              <span style={{color:"#4a5168",fontSize:15}}>⌕</span>
-              <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Buscar..." style={{background:"none",border:"none",outline:"none",color:"#e8ecf4",fontFamily:"inherit",fontSize:13,width:"100%"}}/>
-            </div>
-            <select value={filterCat} onChange={e=>setFilterCat(e.target.value)} style={{background:S.surface,border:S.border,borderRadius:8,padding:"7px 12px",color:"#e8ecf4",fontFamily:"inherit",fontSize:13,outline:"none",cursor:"pointer"}}>
-              <option value="">Todas las categorías</option>{CATS.map(c=><option key={c}>{c}</option>)}
-            </select>
-            <select value={filterMonth} onChange={e=>setFilterMonth(e.target.value)} style={{background:S.surface,border:S.border,borderRadius:8,padding:"7px 12px",color:"#e8ecf4",fontFamily:"inherit",fontSize:13,outline:"none",cursor:"pointer"}}>
-              <option value="">Todos los meses</option>{MONTHS.map(m=><option key={m}>{m}</option>)}
-            </select>
-            <button onClick={()=>setModal("new")} disabled={currentUser.role==="reader"} style={{background:"#4f7fff",border:"none",borderRadius:8,padding:"8px 16px",color:"#fff",fontWeight:600,fontSize:13,cursor:"pointer",opacity:currentUser.role==="reader"?.4:1,whiteSpace:"nowrap"}}>+ Agregar Gasto</button>
-          </div>
-          <div style={{background:S.surface,border:S.border,borderRadius:12,overflow:"hidden"}}>
-            <table style={{width:"100%",borderCollapse:"collapse"}}>
-              <thead><tr style={{background:S.surface2,borderBottom:S.border}}>
-                {["Fecha","Dept","Categoría","Descripción / Detalle","Trabajador","Mes","Total pagado","Neto real","Por",""].map(h=><th key={h} style={{padding:"10px 12px",textAlign:"left",fontSize:10,fontWeight:600,textTransform:"uppercase",letterSpacing:".08em",color:"#7a8399",whiteSpace:"nowrap"}}>{h}</th>)}
-              </tr></thead>
-              <tbody>
-                {!tableData.length&&<tr><td colSpan={10} style={{padding:"60px",textAlign:"center",color:"#4a5168"}}><div style={{fontSize:36,marginBottom:12}}>📋</div>Sin registros</td></tr>}
-                {tableData.map(e=>(
-                  <tr key={e.id} style={{borderBottom:S.border}} onMouseEnter={ev=>ev.currentTarget.style.background=S.surface2} onMouseLeave={ev=>ev.currentTarget.style.background="transparent"}>
-                    <td style={{padding:"12px",fontSize:12,color:"#7a8399",fontFamily:"monospace"}}>{e.date}</td>
-                    <td style={{padding:"12px"}}><span style={{background:`rgba(${deptRgb(e.dept)},.12)`,color:deptColor(e.dept),padding:"3px 10px",borderRadius:20,fontSize:11,fontWeight:600}}>{e.dept}</span></td>
-                    <td style={{padding:"12px"}}><span style={{background:S.surface2,border:S.border2,padding:"2px 8px",borderRadius:4,fontSize:11,color:"#7a8399",fontFamily:"monospace"}}>{e.cat}</span></td>
-                    <td style={{padding:"12px"}}>
-                      <div>{e.desc}</div>
-                      {e.isComision&&(<div style={{display:"flex",gap:8,marginTop:5,flexWrap:"wrap"}}>
-                        <span style={{fontSize:11,color:"#7a8399"}}>Total: <strong style={{color:"#e8ecf4"}}>{e.qtTotal}</strong></span>
-                        <span style={{fontSize:11,color:"#22c55e"}}>✅ {e.qtCorrectas}</span>
-                        {e.qtIncorrectas>0&&<span style={{fontSize:11,color:"#ef4444"}}>❌ -{e.qtIncorrectas}</span>}
-                        <span style={{fontSize:11,color:"#7a8399"}}>× {fmtMoney(e.valorUnitario)}</span>
-                      </div>)}
-                      {e.notes&&<div style={{fontSize:11,color:"#4a5168",marginTop:2}}>{e.notes}</div>}
-                    </td>
-                    <td style={{padding:"12px",color:"#7a8399"}}>{e.worker}</td>
-                    <td style={{padding:"12px",color:"#7a8399"}}>{e.month}</td>
-                    <td style={{padding:"12px",fontFamily:"monospace",fontWeight:600}}>{fmtMoney(e.amount)}</td>
-                    <td style={{padding:"12px",fontFamily:"monospace",fontWeight:600,color:e.isComision&&e.netoComision<e.amount?"#22c55e":"#e8ecf4"}}>
-                      {e.isComision?(<div>{fmtMoney(e.netoComision)}{e.qtIncorrectas>0&&<div style={{fontSize:11,color:"#ef4444",marginTop:2}}>-{fmtMoney(e.qtIncorrectas*e.valorUnitario)}</div>}</div>):fmtMoney(e.amount)}
-                    </td>
-                    <td style={{padding:"12px",fontSize:11,color:"#4a5168"}}>{e.by}</td>
-                    <td style={{padding:"12px"}}>
-                      {currentUser.role!=="reader"&&(<div style={{display:"flex",gap:4}}>
-                        <button onClick={()=>setModal(e)} style={{background:S.surface2,border:S.border2,borderRadius:5,width:26,height:26,display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",color:"#7a8399",fontSize:12}}>✎</button>
-                        <button onClick={()=>deleteEntry(e.id)} style={{background:S.surface2,border:S.border2,borderRadius:5,width:26,height:26,display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",color:"#7a8399",fontSize:12}}>✕</button>
-                      </div>)}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
-
-      {/* ── WOM REMUNERACIONES ── */}
-      {view==="table" && activeDept==="Wom" && womTab==="remuneraciones" && (()=>{
+      {view==="table" && activeDept==="Wom" && womTab==="remuneraciones" && (() => {
         const remData   = trabajadores.filter(t=>t.month===remMonth);
         const vendedores = remData.filter(t=>t.tipo==="vendedor");
         const supervisores = remData.filter(t=>t.tipo==="supervisor");
@@ -1270,12 +1141,6 @@ export default function App() {
 
         return (
           <div style={{padding:24}}>
-            {/* Wom sub-tabs */}
-            <div style={{display:"flex",gap:4,borderBottom:"1px solid #1e2330",marginBottom:16}}>
-              {[["gastos","📋 Gastos"],["remuneraciones","💜 Remuneraciones"]].map(([v,lbl])=>(
-                <button key={v} onClick={()=>setWomTab(v)} style={{background:"none",border:"none",borderBottom:`2px solid ${womTab===v?"#a78bfa":"transparent"}`,borderRadius:0,padding:"8px 18px",color:womTab===v?"#e8ecf4":"#7a8399",fontWeight:womTab===v?600:400,fontSize:13,cursor:"pointer",fontFamily:"inherit",marginBottom:-1}}>{lbl}</button>
-              ))}
-            </div>
             {/* Header */}
             <div style={{display:"flex",alignItems:"center",gap:12,flexWrap:"wrap",marginBottom:16}}>
               <div>
@@ -1384,7 +1249,7 @@ export default function App() {
               <div style={{background:S.surface,border:S.border,borderRadius:12,overflow:"hidden"}}>
                 <table style={{width:"100%",borderCollapse:"collapse"}}>
                   <thead><tr style={{background:S.surface2,borderBottom:S.border}}>
-                    {["Nombre","Cargo","Mes","Sueldo Base","Ventas","Costo/Venta","Pago Wom","Diferencia",""].map(h=>(
+                    {["Nombre","Cargo","Mes","Sueldo Base","Ventas","Pago Ventas","Diferencia",""].map(h=>(
                       <th key={h} style={{padding:"10px 14px",textAlign:"left",fontSize:10,fontWeight:600,textTransform:"uppercase",letterSpacing:".08em",color:"#7a8399",whiteSpace:"nowrap"}}>{h}</th>
                     ))}
                   </tr></thead>
@@ -1398,28 +1263,13 @@ export default function App() {
                         <td style={{padding:"12px 14px",color:"#7a8399",fontSize:12}}>{t.month}</td>
                         <td style={{padding:"12px 14px",fontFamily:"monospace",fontWeight:600}}>{fmtMoney(t.sueldoBase)}</td>
                         <td style={{padding:"12px 14px",fontFamily:"monospace",color:"#7a8399"}}>
-                          {t.tipo==="vendedor" ? `${t.ventas} × ${fmtMoney(t.valorVenta)}` : t.tipo==="supervisor" ? `${t.ventasEquipo||0} ventas equipo` : "—"}
+                          {t.tipo==="vendedor" ? `${t.ventas} × ${fmtMoney(t.valorVenta)}` : "—"}
                         </td>
-                        <td style={{padding:"12px 14px",fontFamily:"monospace",color:"#eab308",fontWeight:600}}>
-                          {(t.tipo==="vendedor"&&t.ventas>0)||(t.tipo==="supervisor"&&t.ventasEquipo>0) ? fmtMoney(Math.round(t.costoPorVenta||0)) : "—"}
+                        <td style={{padding:"12px 14px",fontFamily:"monospace",color:"#4f7fff"}}>
+                          {t.tipo==="vendedor" ? fmtMoney(t.pagoVentas) : "—"}
                         </td>
-                        <td style={{padding:"12px 14px",fontFamily:"monospace",color:"#4f7fff",fontWeight:600}}>
-                          {t.tipo==="vendedor" ? fmtMoney(t.pagoVentas||0) : t.tipo==="supervisor" ? fmtMoney((t.ventasEquipo||0)*(t.bonoVenta||0)) : "—"}
-                        </td>
-                        <td style={{padding:"12px 14px",fontFamily:"monospace",fontWeight:700,color:t.tipo==="vendedor"?(t.diferencia>=0?"#22c55e":"#ef4444"):(() => {
-                          if(t.tipo!=="supervisor") return "#7a8399";
-                          const vEquipo = remData.filter(x=>t.vendedoresIds?.includes(x.id));
-                          const sumaDif = vEquipo.reduce((s,x)=>s+x.diferencia,0);
-                          const totalSup = t.sueldoBase + (t.ventasEquipo||0)*(t.bonoVenta||0);
-                          return (sumaDif-totalSup)>=0?"#22c55e":"#ef4444";
-                        })()}}>
-                          {t.tipo==="vendedor" ? `${t.diferencia>=0?"+":""}${fmtMoney(t.diferencia)}` : t.tipo==="supervisor" ? (() => {
-                            const vEquipo = remData.filter(x=>t.vendedoresIds?.includes(x.id));
-                            const sumaDif = vEquipo.reduce((s,x)=>s+x.diferencia,0);
-                            const totalSup = t.sueldoBase + (t.ventasEquipo||0)*(t.bonoVenta||0);
-                            const dif = sumaDif - totalSup;
-                            return `${dif>=0?"+":""}${fmtMoney(dif)}`;
-                          })() : "—"}
+                        <td style={{padding:"12px 14px",fontFamily:"monospace",fontWeight:700,color:t.tipo==="vendedor"?(t.diferencia>=0?"#22c55e":"#ef4444"):"#7a8399"}}>
+                          {t.tipo==="vendedor" ? `${t.diferencia>=0?"+":""}${fmtMoney(t.diferencia)}` : "—"}
                         </td>
                         <td style={{padding:"12px 14px"}}>
                           {currentUser.role==="admin" && (
@@ -1877,7 +1727,7 @@ export default function App() {
                 <div key={c.id} style={{display:"flex",alignItems:"center",justifyContent:"space-between",background:"#181b22",borderRadius:8,padding:"12px 14px"}}>
                   <div>
                     <div style={{fontWeight:600,color:"#e8ecf4",fontSize:13}}>{c.nombre}</div>
-                    <div style={{fontSize:11,color:"#7a8399",marginTop:2}}>{c.tipo==="vendedor"?`Vendedor · ${fmtMoney(c.valorVenta)}/venta`:`Supervisor · bono ${fmtMoney(c.bonoVenta||0)}/venta equipo`}</div>
+                    <div style={{fontSize:11,color:"#7a8399",marginTop:2}}>{c.tipo==="vendedor"?`Vendedor · ${fmtMoney(c.valorVenta)}/venta`:"Supervisor · sueldo fijo"}</div>
                   </div>
                   <div style={{display:"flex",gap:4}}>
                     <button onClick={()=>setCargoModal(c)} style={{background:"#1e2330",border:"1px solid #2a3045",borderRadius:5,width:26,height:26,display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",color:"#7a8399",fontSize:12}}>✎</button>
