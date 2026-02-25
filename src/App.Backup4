@@ -175,7 +175,7 @@ function Modal({ onClose, onSave, entry, userDept }) {
     }
   };
 
-  const fi = { width:"100%",boxSizing:"border-box",background:"#181b22",border:"1px solid #1e2330",borderRadius:8,padding:"9px 12px",color:"#e8ecf4",fontFamily:"inherit",fontSize:13,outline:"none" };
+  const fi = { width:"100%",background:"#181b22",border:"1px solid #1e2330",borderRadius:8,padding:"9px 12px",color:"#e8ecf4",fontFamily:"inherit",fontSize:13,outline:"none" };
   const lbl = txt => <label style={{fontSize:11,color:"#7a8399",textTransform:"uppercase",letterSpacing:".08em",display:"block",marginBottom:6}}>{txt}</label>;
 
   return (
