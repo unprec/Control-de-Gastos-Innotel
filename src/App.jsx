@@ -102,7 +102,7 @@ const parseCalidadExcel = (rows) => {
     mes1:    String(r[idx.mes1]||"Sin datos"),
     mes2:    String(r[idx.mes2]||"Sin datos"),
     mes3:    String(r[idx.mes3]||"Sin datos"),
-    Mes:  String(r[idx.mes]||"Sin datos"),
+    camada:  String(r[idx.mes]||"Sin datos"),
   }));
 };
 
@@ -303,21 +303,21 @@ function BillingModal({ onClose, onSave, entry }) {
 
         {/* Header labels */}
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10,marginBottom:6}}>
-          <div>{badge("NET","0,181,226")}</div>
+          <div>{badge("BAF","0,181,226")}</div>
           <div>{badge("TV","167,139,250")}</div>
           <div>{badge("VOZ","34,197,94")}</div>
         </div>
 
         {/* Qty row */}
         <div style={rowStyle}>
-          <div>{lbl("Cantidad NET")}<input style={fi} type="number" value={bafQty} onChange={e=>setBafQty(e.target.value)} placeholder="620"/></div>
+          <div>{lbl("Cantidad BAF")}<input style={fi} type="number" value={bafQty} onChange={e=>setBafQty(e.target.value)} placeholder="620"/></div>
           <div>{lbl("Cantidad TV")}<input style={fi} type="number" value={tvQty} onChange={e=>setTvQty(e.target.value)} placeholder="95"/></div>
           <div>{lbl("Cantidad VOZ")}<input style={fi} type="number" value={vozQty} onChange={e=>setVozQty(e.target.value)} placeholder="0"/></div>
         </div>
 
         {/* Val row */}
         <div style={rowStyle}>
-          <div>{lbl("Valor Unit. NET ($)")}<input style={fi} type="number" value={bafVal} onChange={e=>setBafVal(e.target.value)} placeholder="52000"/></div>
+          <div>{lbl("Valor Unit. BAF ($)")}<input style={fi} type="number" value={bafVal} onChange={e=>setBafVal(e.target.value)} placeholder="52000"/></div>
           <div>{lbl("Valor Unit. TV ($)")}<input style={fi} type="number" value={tvVal} onChange={e=>setTvVal(e.target.value)} placeholder="32000"/></div>
           <div>{lbl("Valor Unit. VOZ ($)")}<input style={fi} type="number" value={vozVal} onChange={e=>setVozVal(e.target.value)} placeholder="30000"/></div>
         </div>
@@ -325,7 +325,7 @@ function BillingModal({ onClose, onSave, entry }) {
         {/* Subtotals */}
         {(bafQty||tvQty||vozQty) && (
           <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10,marginBottom:16}}>
-            {[["NET",bafTotal,"0,181,226"],[" TV",tvTotal,"167,139,250"],["VOZ",vozTotal,"34,197,94"]].map(([lbl,val,c])=>(
+            {[["BAF",bafTotal,"0,181,226"],[" TV",tvTotal,"167,139,250"],["VOZ",vozTotal,"34,197,94"]].map(([lbl,val,c])=>(
               <div key={lbl} style={{background:"#0a0b0e",borderRadius:7,padding:"8px 10px",textAlign:"center"}}>
                 <div style={{fontSize:10,color:"#7a8399",marginBottom:2}}>{lbl}</div>
                 <div style={{fontWeight:700,fontSize:13,color:`rgb(${c})`}}>{fmtMoney(val)}</div>
@@ -336,7 +336,7 @@ function BillingModal({ onClose, onSave, entry }) {
 
         {/* Total calculado */}
         <div style={{background:"#0a0b0e",borderRadius:8,padding:"10px 14px",marginBottom:14,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-          <span style={{fontSize:12,color:"#7a8399"}}>Total calculado (NET+TV+VOZ)</span>
+          <span style={{fontSize:12,color:"#7a8399"}}>Total calculado (BAF+TV+VOZ)</span>
           <span style={{fontWeight:700,fontSize:16,color:"#e8ecf4"}}>{fmtMoney(totalCalculado)}</span>
         </div>
 
@@ -441,9 +441,9 @@ function UserModal({ onClose, onSave, entry }) {
           <div style={{gridColumn:"1/-1"}}>{lbl("Correo")}<input style={fi} type="email" value={email} onChange={e=>setEmail(e.target.value)} placeholder="correo@innotel.com"/></div>
           <div style={{gridColumn:"1/-1"}}>
             {lbl("Contraseña")}
-            <div style={{position:"relative"}}>
-              <input style={{...fi,paddingRight:40}} type={showPass?"text":"password"} value={pass} onChange={e=>setPass(e.target.value)} placeholder="Contraseña segura"/>
-              <button onClick={()=>setShowPass(p=>!p)} style={{position:"absolute",right:10,top:"50%",transform:"translateY(-50%)",background:"none",border:"none",cursor:"pointer",color:"#7a8399",fontSize:14}}>{showPass?"🙈":"👁"}</button>
+            <div style={{position:"relative",overflow:"hidden",borderRadius:8}}>
+              <input style={{...fi,paddingRight:42,boxSizing:"border-box"}} type={showPass?"text":"password"} value={pass} onChange={e=>setPass(e.target.value)} placeholder="Contraseña segura"/>
+              <button onClick={()=>setShowPass(p=>!p)} style={{position:"absolute",right:10,top:"50%",transform:"translateY(-50%)",background:"none",border:"none",cursor:"pointer",color:"#7a8399",fontSize:14,lineHeight:1}}>{showPass?"🙈":"👁"}</button>
             </div>
           </div>
           <div>
@@ -523,6 +523,7 @@ export default function App() {
     const u = appUsers.find(u=>u.email===loginEmail && u.pass===loginPass);
     if (!u) { setLoginErr("Credenciales incorrectas."); return; }
     setLoginErr(""); setCurrentUser({...u});
+    setView(u.role==="admin" ? "dashboard" : "table");
     if (u.dept) { setActiveDept(u.dept); setDashDept(u.dept); }
   };
   const doLogout = () => { setCurrentUser(null); setView("dashboard"); };
@@ -695,7 +696,7 @@ export default function App() {
     const billRows = [
       ["Facturación — Ingresos vs Gastos","","","","","","","","","","","",""],
       [],
-      ["Departamento","Mes","NET Qty","NET Val","TV Qty","TV Val","VOZ Qty","VOZ Val","Total Calculado","Total Factura","Diferencia","Total Gastos","Margen"],
+      ["Departamento","Mes","BAF Qty","BAF Val","TV Qty","TV Val","VOZ Qty","VOZ Val","Total Calculado","Total Factura","Diferencia","Total Gastos","Margen"],
     ];
     billing.forEach(b => {
       const gastos   = entries.filter(e=>e.dept===b.dept&&e.month===b.month).reduce((s,e)=>s+e.amount,0);
@@ -743,7 +744,9 @@ export default function App() {
       <div style={{height:56,background:S.surface,borderBottom:S.border,display:"flex",alignItems:"center",padding:"0 20px",gap:10,position:"sticky",top:0,zIndex:100}}>
         <div style={{fontWeight:800,fontSize:16,background:"linear-gradient(135deg,#4f7fff,#7c5cfc)",WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent",marginRight:4,whiteSpace:"nowrap"}}>Gestión de Gastos</div>
         <div style={{display:"flex",gap:2,background:S.surface2,border:S.border,borderRadius:8,padding:3}}>
-          {[["dashboard","📊 Dashboard"],["table","☰ Tabla"],["billing","💰 Facturación"],["calidad","⭐ Calidad"]].map(([v,label])=>(
+          {[["dashboard","📊 Dashboard"],["table","☰ Tabla"],["billing","💰 Facturación"],["calidad","⭐ Calidad"]]
+            .filter(([v])=> currentUser.role==="admin" || v==="table")
+            .map(([v,label])=>(
             <button key={v} onClick={()=>setView(v)} style={{padding:"5px 14px",borderRadius:5,fontSize:12,fontWeight:500,cursor:"pointer",border:"none",color:view===v?"#e8ecf4":"#7a8399",background:view===v?S.surface:"transparent",fontFamily:"inherit",boxShadow:view===v?"0 1px 3px rgba(0,0,0,.3)":"none",whiteSpace:"nowrap"}}>
               {label}
             </button>
@@ -1045,7 +1048,7 @@ export default function App() {
             </div>
             <table style={{width:"100%",borderCollapse:"collapse"}}>
               <thead><tr style={{background:S.surface2,borderBottom:S.border}}>
-                {["Depto","Mes","NET","TV","VOZ","Total Calc.","Total Factura","Reliq.","Total Final","Notas",""].map(h=><th key={h} style={{padding:"10px 12px",textAlign:"left",fontSize:10,fontWeight:600,textTransform:"uppercase",letterSpacing:".08em",color:"#7a8399"}}>{h}</th>)}
+                {["Depto","Mes","BAF","TV","VOZ","Total Calc.","Total Factura","Reliq.","Total Final","Notas",""].map(h=><th key={h} style={{padding:"10px 12px",textAlign:"left",fontSize:10,fontWeight:600,textTransform:"uppercase",letterSpacing:".08em",color:"#7a8399"}}>{h}</th>)}
               </tr></thead>
               <tbody>
                 {!filteredBilling.length&&<tr><td colSpan={10} style={{padding:"40px",textAlign:"center",color:"#4a5168",fontSize:13}}>No hay registros de facturación para {billMonth}</td></tr>}
@@ -1098,22 +1101,22 @@ export default function App() {
 
       {/* ── CALIDAD ── */}
       {view==="calidad" && (() => {
-        const MesRows = calidadData[calidadCamada] || [];
-        const total = MesRows.length;
-        const pagM1 = MesRows.filter(r=>r.mes1===PAGO).length;
-        const pagM2 = MesRows.filter(r=>r.mes2===PAGO).length;
-        const pagM3 = MesRows.filter(r=>r.mes3===PAGO).length;
-        const pagTres = MesRows.filter(r=>r.mes1===PAGO&&r.mes2===PAGO&&r.mes3===PAGO).length;
+        const camadaRows = calidadData[calidadCamada] || [];
+        const total = camadaRows.length;
+        const pagM1 = camadaRows.filter(r=>r.mes1===PAGO).length;
+        const pagM2 = camadaRows.filter(r=>r.mes2===PAGO).length;
+        const pagM3 = camadaRows.filter(r=>r.mes3===PAGO).length;
+        const pagTres = camadaRows.filter(r=>r.mes1===PAGO&&r.mes2===PAGO&&r.mes3===PAGO).length;
         const pctM1  = total ? Math.round(pagM1/total*100) : 0;
         const pctM2  = total ? Math.round(pagM2/total*100) : 0;
         const pctM3  = total ? Math.round(pagM3/total*100) : 0;
         const pctBono = total ? Math.round(pagTres/total*100) : 0;
-        const tieneM3 = MesRows.some(r=>r.mes3!=="Sin datos");
-        const tieneM2 = MesRows.some(r=>r.mes2!=="Sin datos");
+        const tieneM3 = camadaRows.some(r=>r.mes3!=="Sin datos");
+        const tieneM2 = camadaRows.some(r=>r.mes2!=="Sin datos");
 
         // Ranking vendedores
         const vendMap = {};
-        MesRows.forEach(r=>{
+        camadaRows.forEach(r=>{
           const v = r.usuario||"Sin asignar";
           if(!vendMap[v]) vendMap[v]={nombre:v,total:0,m1:0,m2:0,m3:0,bono:0};
           vendMap[v].total++;
@@ -1127,7 +1130,7 @@ export default function App() {
         );
 
         // Detalle filtrado
-        const detalle = MesRows.filter(r=>
+        const detalle = camadaRows.filter(r=>
           !calidadSearch || r.usuario.toLowerCase().includes(calidadSearch.toLowerCase()) ||
           r.rut.includes(calidadSearch) || r.orden.includes(calidadSearch)
         );
@@ -1149,17 +1152,17 @@ export default function App() {
           const rows = XLSX.utils.sheet_to_json(ws,{header:1,defval:""});
           const parsed = parseCalidadExcel(rows);
           if(!parsed.length){showToast("No se encontraron datos válidos","error");return;}
-          // group by Mes
+          // group by camada
           const byCamada = {};
-          parsed.forEach(r=>{ if(!byCamada[r.Mes]) byCamada[r.Mes]=[]; byCamada[r.Mes].push(r); });
+          parsed.forEach(r=>{ if(!byCamada[r.camada]) byCamada[r.camada]=[]; byCamada[r.camada].push(r); });
           setCalidadData(prev=>({...prev,...byCamada}));
-          const Mess = Object.keys(byCamada).join(", ");
-          showToast(`${parsed.length} registros cargados (${Mess}) ✓`);
+          const camadas = Object.keys(byCamada).join(", ");
+          showToast(`${parsed.length} registros cargados (${camadas}) ✓`);
           if(Object.keys(byCamada)[0]) setCalidadCamada(Object.keys(byCamada)[0]);
           e.target.value="";
         };
 
-        const Mess = Object.keys(calidadData);
+        const camadas = Object.keys(calidadData);
 
         return (
           <div style={{padding:24}}>
@@ -1167,13 +1170,13 @@ export default function App() {
             <div style={{display:"flex",alignItems:"center",gap:12,flexWrap:"wrap",marginBottom:20}}>
               <div>
                 <div style={{fontWeight:700,fontSize:20}}>⭐ Control de Calidad</div>
-                <div style={{fontSize:13,color:"#7a8399",marginTop:2}}>Movistar — Seguimiento de pagos por Mes</div>
+                <div style={{fontSize:13,color:"#7a8399",marginTop:2}}>Movistar — Seguimiento de pagos por camada</div>
               </div>
               <div style={{marginLeft:"auto",display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}>
-                {Mess.length>0 && (
+                {camadas.length>0 && (
                   <select value={calidadCamada} onChange={e=>setCalidadCamada(e.target.value)}
                     style={{background:S.surface,border:S.border,borderRadius:8,padding:"7px 12px",color:"#e8ecf4",fontFamily:"inherit",fontSize:13,outline:"none",cursor:"pointer"}}>
-                    {Mess.map(c=><option key={c}>{c}</option>)}
+                    {camadas.map(c=><option key={c}>{c}</option>)}
                   </select>
                 )}
                 <label style={{background:"#4f7fff",border:"none",borderRadius:8,padding:"8px 16px",color:"#fff",fontWeight:600,fontSize:13,cursor:"pointer",whiteSpace:"nowrap"}}>
@@ -1228,7 +1231,7 @@ export default function App() {
                         <span style={{fontWeight:900,fontSize:48,color:pctBono>=70?"#22c55e":pctBono>=50?"#eab308":"#ef4444"}}>{tieneM3?`${pctBono}%`:"—"}</span>
                         {tieneM3&&<span style={{fontSize:14,color:"#7a8399"}}>{pagTres} de {total} clientes</span>}
                       </div>
-                      {!tieneM3 && <div style={{fontSize:13,color:"#7a8399",marginTop:4}}>Aún no hay datos del Mes 3 para esta Mes</div>}
+                      {!tieneM3 && <div style={{fontSize:13,color:"#7a8399",marginTop:4}}>Aún no hay datos del Mes 3 para esta camada</div>}
                     </div>
                     {/* Mini barra de progreso */}
                     {tieneM3 && (
