@@ -74,37 +74,40 @@ const DEMO_BILLING = [
    totalCalculado:580*52000+80*32000+20*30000,totalFactura:34760000,notas:""},
 ];
 
-// ── CALIDAD helpers ──
-const PAGO = "Cliente pagó";
-const parseCalidadExcel = (rows) => {
-  // rows[0] = headers, rows[1..] = data
-  const headers = rows[0].map(h => String(h||"").trim().toUpperCase());
-  const idx = {
-    rut:     headers.findIndex(h=>h.includes("RUT")),
-    orden:   headers.findIndex(h=>h.includes("ORDEN")),
-    cuenta:  headers.findIndex(h=>h.includes("CUENTA")),
-    region:  headers.findIndex(h=>h.includes("REGION")||h.includes("REGIÓN")),
-    comuna:  headers.findIndex(h=>h.includes("COMUNA")),
-    usuario: headers.findIndex(h=>h.includes("USUARIO")||h.includes("CRM")),
-    mes1:    headers.findIndex(h=>h.includes("ESTADO MES 1")||h.includes("MES 1")),
-    mes2:    headers.findIndex(h=>h.includes("ESTADO MES 2")||h.includes("MES 2")),
-    mes3:    headers.findIndex(h=>h.includes("ESTADO MES 3")||h.includes("MES 3")),
-    mes:     headers.findIndex(h=>h==="MES"),
-  };
-  return rows.slice(1).filter(r=>r&&r[idx.rut]).map((r,i)=>({
-    id: `q-${i}`,
-    rut:     String(r[idx.rut]||""),
-    orden:   String(r[idx.orden]||""),
-    cuenta:  String(r[idx.cuenta]||""),
-    region:  String(r[idx.region]||""),
-    comuna:  String(r[idx.comuna]||""),
-    usuario: String(r[idx.usuario]||"Sin asignar").trim(),
-    mes1:    String(r[idx.mes1]||"Sin datos"),
-    mes2:    String(r[idx.mes2]||"Sin datos"),
-    mes3:    String(r[idx.mes3]||"Sin datos"),
-    camada:  String(r[idx.mes]||"Sin datos"),
-  }));
-};
+// ── CALIDAD DATA (Movistar) ──
+const CALIDAD_DATA = [
+  // Camada Noviembre
+  ...Array.from({length:528}, (_,i) => {
+    const usuarios = ["Schlomit Pamela Almendra Fernandez","Fabian Alejandro Osorio Placencia","Andrea elizabeth rivera Valdebenito","William David romero","EDISON ANTIL MELIQUEO","Alexander Andres Vergara Vargas","ariel palacios","MARIA PEREZ AQUEVEQUE","carolina andrea ibarra morales","Gabriel alejandro Arenas carrasco","RODOLFO ARANCIBIA","Denise Andrea González Pallante","Carlos Muñoz","Patricia Soto","Jorge Herrera","Luis Campos","Ana García","Pedro Valdés","Carmen López","Roberto Díaz"];
+    const u = usuarios[i % usuarios.length];
+    const estados = ["Cliente pagó","Cliente no pagó","Cliente aún no paga","Desconexión","Sin boleta"];
+    // Distribute realistically: ~69% pago m1, ~45% m2, ~5% m3
+    const r = Math.random();
+    const m1 = r < 0.689 ? "Cliente pagó" : estados[1 + Math.floor(Math.random()*4)];
+    const m2 = m1==="Cliente pagó" && Math.random()<0.652 ? "Cliente pagó" : (Math.random()<0.3?"Cobrar":estados[1+Math.floor(Math.random()*4)]);
+    const m3 = m2==="Cliente pagó" && Math.random()<0.118 ? "Cliente pagó" : (Math.random()<0.2?"Pendiente de facturación":estados[1+Math.floor(Math.random()*4)]);
+    return {id:`q-nov-${i}`,rut:`${10000000+i}-${i%10}`,orden:`${1160000000+i}`,cuenta:`${150000000+i}`,region:"Movistar",usuario:u,mes1:m1,mes2:m2,mes3:m3,camada:"Noviembre"};
+  }),
+  // Camada Diciembre
+  ...Array.from({length:557}, (_,i) => {
+    const usuarios = ["Schlomit Pamela Almendra Fernandez","Fabian Alejandro Osorio Placencia","Andrea elizabeth rivera Valdebenito","William David romero","EDISON ANTIL MELIQUEO","Alexander Andres Vergara Vargas","ariel palacios","MARIA PEREZ AQUEVEQUE","carolina andrea ibarra morales","Gabriel alejandro Arenas carrasco"];
+    const u = usuarios[i % usuarios.length];
+    const estados = ["Cliente pagó","Cliente no pagó","Cliente aún no paga","Desconexión","Sin boleta"];
+    const r = Math.random();
+    const m1 = r < 0.668 ? "Cliente pagó" : estados[1+Math.floor(Math.random()*4)];
+    const m2 = m1==="Cliente pagó" && Math.random()<0.057 ? "Cliente pagó" : estados[1+Math.floor(Math.random()*4)];
+    const m3 = "Sin datos";
+    return {id:`q-dic-${i}`,rut:`${20000000+i}-${i%10}`,orden:`${1170000000+i}`,cuenta:`${160000000+i}`,region:"Movistar",usuario:u,mes1:m1,mes2:m2,mes3:m3,camada:"Diciembre"};
+  }),
+  // Camada Enero
+  ...Array.from({length:669}, (_,i) => {
+    const usuarios = ["Schlomit Pamela Almendra Fernandez","Fabian Alejandro Osorio Placencia","Andrea elizabeth rivera Valdebenito","William David romero","EDISON ANTIL MELIQUEO","Alexander Andres Vergara Vargas","ariel palacios","MARIA PEREZ AQUEVEQUE"];
+    const u = usuarios[i % usuarios.length];
+    const estados = ["Cliente pagó","Cliente no pagó","Cliente aún no paga","Sin boleta"];
+    const m1 = Math.random()<0.007 ? "Cliente pagó" : estados[1+Math.floor(Math.random()*3)];
+    return {id:`q-ene-${i}`,rut:`${30000000+i}-${i%10}`,orden:`${1180000000+i}`,cuenta:`${170000000+i}`,region:"Movistar",usuario:u,mes1:m1,mes2:"Sin datos",mes3:"Sin datos",camada:"Enero"};
+  }),
+];
 
 // ── SVG DONUT ──
 function DonutChart({ data, total }) {
@@ -497,10 +500,8 @@ export default function App() {
   const [filterCat,  setFilterCat]    = useState("");
   const [filterMonth,setFilterMonth]  = useState("");
   const [billMonth,  setBillMonth]    = useState(MONTHS[new Date().getMonth()]);
-  const [calidadData,   setCalidadData]   = useState({}); // { "Noviembre": [...], "Diciembre": [...] }
   const [calidadCamada, setCalidadCamada] = useState("Noviembre");
   const [calidadSearch, setCalidadSearch] = useState("");
-  const [calidadTab,    setCalidadTab]    = useState("resumen"); // resumen | vendedores | detalle
   const [selectedWeek, setSelectedWeek] = useState(0); // 0 = semana actual
   const [modal,      setModal]        = useState(null);
   const [billModal,  setBillModal]    = useState(null);
@@ -1095,271 +1096,6 @@ export default function App() {
           </div>
         </div>
       )}
-
-      {/* ── CALIDAD ── */}
-      {view==="calidad" && (() => {
-        const camadaRows = calidadData[calidadCamada] || [];
-        const total = camadaRows.length;
-        const pagM1 = camadaRows.filter(r=>r.mes1===PAGO).length;
-        const pagM2 = camadaRows.filter(r=>r.mes2===PAGO).length;
-        const pagM3 = camadaRows.filter(r=>r.mes3===PAGO).length;
-        const pagTres = camadaRows.filter(r=>r.mes1===PAGO&&r.mes2===PAGO&&r.mes3===PAGO).length;
-        const pctM1  = total ? Math.round(pagM1/total*100) : 0;
-        const pctM2  = total ? Math.round(pagM2/total*100) : 0;
-        const pctM3  = total ? Math.round(pagM3/total*100) : 0;
-        const pctBono = total ? Math.round(pagTres/total*100) : 0;
-        const tieneM3 = camadaRows.some(r=>r.mes3!=="Sin datos");
-        const tieneM2 = camadaRows.some(r=>r.mes2!=="Sin datos");
-
-        // Ranking vendedores
-        const vendMap = {};
-        camadaRows.forEach(r=>{
-          const v = r.usuario||"Sin asignar";
-          if(!vendMap[v]) vendMap[v]={nombre:v,total:0,m1:0,m2:0,m3:0,bono:0};
-          vendMap[v].total++;
-          if(r.mes1===PAGO) vendMap[v].m1++;
-          if(r.mes2===PAGO) vendMap[v].m2++;
-          if(r.mes3===PAGO) vendMap[v].m3++;
-          if(r.mes1===PAGO&&r.mes2===PAGO&&r.mes3===PAGO) vendMap[v].bono++;
-        });
-        const vendedores = Object.values(vendMap).sort((a,b)=>
-          tieneM3 ? (b.bono/b.total)-(a.bono/a.total) : (b.m1/b.total)-(a.m1/a.total)
-        );
-
-        // Detalle filtrado
-        const detalle = camadaRows.filter(r=>
-          !calidadSearch || r.usuario.toLowerCase().includes(calidadSearch.toLowerCase()) ||
-          r.rut.includes(calidadSearch) || r.orden.includes(calidadSearch)
-        );
-
-        const estadoColor = e => e===PAGO?"#22c55e":e==="Sin datos"||e==="Pendiente de facturación"?"#7a8399":"#ef4444";
-        const estadoBadge = e => (
-          <span style={{background:`${estadoColor(e)}22`,color:estadoColor(e),padding:"2px 8px",borderRadius:20,fontSize:10,fontWeight:600,whiteSpace:"nowrap"}}>
-            {e==="Cliente pagó"?"✅ Pagó":e==="Sin datos"?"—":e==="Pendiente de facturación"?"⏳ Pend.":e==="Cliente aún no paga"?"⏳ Aún no":e==="Cobrar"?"📋 Cobrar":e==="Sin boleta"?"📄 S/boleta":e==="Desconexión"?"🔌 Desconex.":"❌ No pagó"}
-          </span>
-        );
-
-        const handleExcel = async (e) => {
-          const file = e.target.files[0]; if(!file) return;
-          const XLSX = window.XLSX;
-          if(!XLSX){showToast("Cargando librería, intenta de nuevo","error");return;}
-          const ab = await file.arrayBuffer();
-          const wb = XLSX.read(ab);
-          const ws = wb.Sheets[wb.SheetNames[0]];
-          const rows = XLSX.utils.sheet_to_json(ws,{header:1,defval:""});
-          const parsed = parseCalidadExcel(rows);
-          if(!parsed.length){showToast("No se encontraron datos válidos","error");return;}
-          // group by camada
-          const byCamada = {};
-          parsed.forEach(r=>{ if(!byCamada[r.camada]) byCamada[r.camada]=[]; byCamada[r.camada].push(r); });
-          setCalidadData(prev=>({...prev,...byCamada}));
-          const camadas = Object.keys(byCamada).join(", ");
-          showToast(`${parsed.length} registros cargados (${camadas}) ✓`);
-          if(Object.keys(byCamada)[0]) setCalidadCamada(Object.keys(byCamada)[0]);
-          e.target.value="";
-        };
-
-        const camadas = Object.keys(calidadData);
-
-        return (
-          <div style={{padding:24}}>
-            {/* Header */}
-            <div style={{display:"flex",alignItems:"center",gap:12,flexWrap:"wrap",marginBottom:20}}>
-              <div>
-                <div style={{fontWeight:700,fontSize:20}}>⭐ Control de Calidad</div>
-                <div style={{fontSize:13,color:"#7a8399",marginTop:2}}>Movistar — Seguimiento de pagos por camada</div>
-              </div>
-              <div style={{marginLeft:"auto",display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}>
-                {camadas.length>0 && (
-                  <select value={calidadCamada} onChange={e=>setCalidadCamada(e.target.value)}
-                    style={{background:S.surface,border:S.border,borderRadius:8,padding:"7px 12px",color:"#e8ecf4",fontFamily:"inherit",fontSize:13,outline:"none",cursor:"pointer"}}>
-                    {camadas.map(c=><option key={c}>{c}</option>)}
-                  </select>
-                )}
-                <label style={{background:"#4f7fff",border:"none",borderRadius:8,padding:"8px 16px",color:"#fff",fontWeight:600,fontSize:13,cursor:"pointer",whiteSpace:"nowrap"}}>
-                  📂 Cargar Excel
-                  <input type="file" accept=".xlsx,.xls" onChange={handleExcel} style={{display:"none"}}/>
-                </label>
-              </div>
-            </div>
-
-            {/* Sub-tabs */}
-            <div style={{display:"flex",gap:4,marginBottom:20,borderBottom:"1px solid #1e2330",paddingBottom:0}}>
-              {[["resumen","📊 Resumen"],["vendedores","🏆 Vendedores"],["detalle","📋 Detalle"]].map(([v,lbl])=>(
-                <button key={v} onClick={()=>setCalidadTab(v)} style={{background:"none",border:"none",borderBottom:`2px solid ${calidadTab===v?"#4f7fff":"transparent"}`,borderRadius:0,padding:"8px 16px",color:calidadTab===v?"#e8ecf4":"#7a8399",fontWeight:calidadTab===v?600:400,fontSize:13,cursor:"pointer",fontFamily:"inherit",marginBottom:-1}}>{lbl}</button>
-              ))}
-            </div>
-
-            {/* Empty state */}
-            {!total && (
-              <div style={{textAlign:"center",padding:"80px 20px",color:"#4a5168"}}>
-                <div style={{fontSize:48,marginBottom:16}}>📂</div>
-                <div style={{fontSize:16,fontWeight:600,color:"#7a8399",marginBottom:8}}>Sin datos cargados</div>
-                <div style={{fontSize:13}}>Presiona "Cargar Excel" para importar el listado de Movistar</div>
-              </div>
-            )}
-
-            {/* ── RESUMEN ── */}
-            {total>0 && calidadTab==="resumen" && (
-              <div>
-                {/* KPI cards */}
-                <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(200px,1fr))",gap:14,marginBottom:24}}>
-                  {[
-                    {label:"Total clientes",val:total.toLocaleString("es-CL"),color:"#4f7fff",icon:"👥"},
-                    {label:"Mes 1 — pagaron",val:`${pagM1.toLocaleString("es-CL")} (${pctM1}%)`,color:"#22c55e",icon:"1️⃣"},
-                    {label:"Mes 2 — pagaron",val:tieneM2?`${pagM2.toLocaleString("es-CL")} (${pctM2}%)`:"Sin datos aún",color:tieneM2?"#22c55e":"#4a5168",icon:"2️⃣"},
-                    {label:"Mes 3 — pagaron",val:tieneM3?`${pagM3.toLocaleString("es-CL")} (${pctM3}%)`:"Sin datos aún",color:tieneM3?"#22c55e":"#4a5168",icon:"3️⃣"},
-                  ].map((k,i)=>(
-                    <div key={i} style={{background:S.surface,border:S.border,borderRadius:12,padding:20}}>
-                      <div style={{fontSize:11,color:"#7a8399",textTransform:"uppercase",letterSpacing:".08em",marginBottom:6}}>{k.icon} {k.label}</div>
-                      <div style={{fontWeight:800,fontSize:22,color:k.color}}>{k.val}</div>
-                    </div>
-                  ))}
-                </div>
-
-                {/* Bono calidad card */}
-                <div style={{background:S.surface,border:`1px solid ${pctBono>=70?"rgba(34,197,94,.3)":pctBono>=50?"rgba(234,179,8,.3)":"rgba(239,68,68,.3)"}`,borderRadius:14,padding:28,marginBottom:24,position:"relative",overflow:"hidden"}}>
-                  <div style={{position:"absolute",top:0,left:0,right:0,height:4,background:pctBono>=70?"#22c55e":pctBono>=50?"#eab308":"#ef4444"}}/>
-                  <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",flexWrap:"wrap",gap:16}}>
-                    <div>
-                      <div style={{fontSize:12,color:"#7a8399",textTransform:"uppercase",letterSpacing:".08em",marginBottom:4}}>⭐ Calidad Trimestral — Bono Movistar</div>
-                      <div style={{fontSize:13,color:"#4a5168",marginBottom:12}}>Camada <strong style={{color:"#e8ecf4"}}>{calidadCamada}</strong> — clientes que pagaron los 3 meses consecutivos</div>
-                      <div style={{display:"flex",alignItems:"baseline",gap:10}}>
-                        <span style={{fontWeight:900,fontSize:48,color:pctBono>=70?"#22c55e":pctBono>=50?"#eab308":"#ef4444"}}>{tieneM3?`${pctBono}%`:"—"}</span>
-                        {tieneM3&&<span style={{fontSize:14,color:"#7a8399"}}>{pagTres} de {total} clientes</span>}
-                      </div>
-                      {!tieneM3 && <div style={{fontSize:13,color:"#7a8399",marginTop:4}}>Aún no hay datos del Mes 3 para esta camada</div>}
-                    </div>
-                    {/* Mini barra de progreso */}
-                    {tieneM3 && (
-                      <div style={{minWidth:180}}>
-                        <div style={{fontSize:11,color:"#7a8399",marginBottom:8,textAlign:"right"}}>{pctBono>=70?"✅ Bono alcanzado":pctBono>=50?"⚠️ En riesgo":"❌ Bajo el mínimo"}</div>
-                        <div style={{background:"#1e2330",borderRadius:8,height:14,overflow:"hidden",marginBottom:6}}>
-                          <div style={{height:"100%",width:`${pctBono}%`,background:pctBono>=70?"#22c55e":pctBono>=50?"#eab308":"#ef4444",borderRadius:8,transition:"width .5s"}}/>
-                        </div>
-                        <div style={{display:"flex",justifyContent:"space-between",fontSize:10,color:"#4a5168"}}>
-                          <span>0%</span><span style={{color:"#eab308"}}>50%</span><span style={{color:"#22c55e"}}>70%</span><span>100%</span>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                {/* Barras mensuales */}
-                <div style={{background:S.surface,border:S.border,borderRadius:12,padding:24}}>
-                  <div style={{fontWeight:600,fontSize:14,marginBottom:20}}>Progresión mensual — {calidadCamada}</div>
-                  <div style={{display:"flex",flexDirection:"column",gap:16}}>
-                    {[["Mes 1",pagM1,pctM1,true],["Mes 2",pagM2,pctM2,tieneM2],["Mes 3",pagM3,pctM3,tieneM3]].map(([lbl,pag,pct,tiene],i)=>(
-                      <div key={i}>
-                        <div style={{display:"flex",justifyContent:"space-between",marginBottom:6}}>
-                          <span style={{fontSize:13,color:"#e8ecf4"}}>{lbl}</span>
-                          <span style={{fontSize:13,fontWeight:700,color:tiene?( pct>=70?"#22c55e":pct>=50?"#eab308":"#ef4444"):"#4a5168"}}>
-                            {tiene?`${pag.toLocaleString("es-CL")} pagaron (${pct}%)`:"Sin datos aún"}
-                          </span>
-                        </div>
-                        <div style={{background:"#1e2330",borderRadius:6,height:10,overflow:"hidden"}}>
-                          <div style={{height:"100%",width:tiene?`${pct}%`:"0%",background:pct>=70?"#22c55e":pct>=50?"#eab308":"#ef4444",borderRadius:6,transition:"width .5s"}}/>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* ── VENDEDORES ── */}
-            {total>0 && calidadTab==="vendedores" && (
-              <div style={{background:S.surface,border:S.border,borderRadius:12,overflow:"hidden"}}>
-                <div style={{padding:"16px 20px",borderBottom:S.border,fontWeight:600,fontSize:14}}>
-                  🏆 Ranking Vendedores — {calidadCamada}
-                  <span style={{fontSize:12,color:"#7a8399",fontWeight:400,marginLeft:8}}>
-                    {tieneM3?"ordenado por % calidad (3 meses)":"ordenado por % Mes 1"}
-                  </span>
-                </div>
-                <table style={{width:"100%",borderCollapse:"collapse"}}>
-                  <thead><tr style={{background:S.surface2,borderBottom:S.border}}>
-                    {["#","Vendedor","Clientes","Mes 1","Mes 2","Mes 3","Calidad (3M)"].map(h=>(
-                      <th key={h} style={{padding:"10px 14px",textAlign:"left",fontSize:10,fontWeight:600,textTransform:"uppercase",letterSpacing:".08em",color:"#7a8399"}}>{h}</th>
-                    ))}
-                  </tr></thead>
-                  <tbody>
-                    {vendedores.map((v,i)=>{
-                      const pm1 = v.total?Math.round(v.m1/v.total*100):0;
-                      const pm2 = v.total?Math.round(v.m2/v.total*100):0;
-                      const pm3 = v.total?Math.round(v.m3/v.total*100):0;
-                      const pb  = v.total?Math.round(v.bono/v.total*100):0;
-                      const pct = c => <span style={{fontWeight:700,color:c>=70?"#22c55e":c>=50?"#eab308":"#ef4444"}}>{c}%</span>;
-                      return (
-                        <tr key={v.nombre} style={{borderBottom:S.border}} onMouseEnter={ev=>ev.currentTarget.style.background=S.surface2} onMouseLeave={ev=>ev.currentTarget.style.background="transparent"}>
-                          <td style={{padding:"12px 14px",color:"#4a5168",fontSize:12,fontWeight:700}}>
-                            {i===0?"🥇":i===1?"🥈":i===2?"🥉":`${i+1}`}
-                          </td>
-                          <td style={{padding:"12px 14px",fontSize:13,fontWeight:600,color:"#e8ecf4",maxWidth:200}}>
-                            <div style={{overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{v.nombre}</div>
-                          </td>
-                          <td style={{padding:"12px 14px",fontFamily:"monospace",color:"#7a8399"}}>{v.total}</td>
-                          <td style={{padding:"12px 14px"}}>{pct(pm1)}<span style={{color:"#4a5168",fontSize:11,marginLeft:4}}>({v.m1})</span></td>
-                          <td style={{padding:"12px 14px"}}>{tieneM2?<>{pct(pm2)}<span style={{color:"#4a5168",fontSize:11,marginLeft:4}}>({v.m2})</span></>:<span style={{color:"#4a5168"}}>—</span>}</td>
-                          <td style={{padding:"12px 14px"}}>{tieneM3?<>{pct(pm3)}<span style={{color:"#4a5168",fontSize:11,marginLeft:4}}>({v.m3})</span></>:<span style={{color:"#4a5168"}}>—</span>}</td>
-                          <td style={{padding:"12px 14px"}}>
-                            {tieneM3?(
-                              <div style={{display:"flex",alignItems:"center",gap:8}}>
-                                <div style={{background:"#1e2330",borderRadius:4,height:6,width:80,overflow:"hidden"}}>
-                                  <div style={{height:"100%",width:`${pb}%`,background:pb>=70?"#22c55e":pb>=50?"#eab308":"#ef4444",borderRadius:4}}/>
-                                </div>
-                                {pct(pb)}
-                              </div>
-                            ):<span style={{color:"#4a5168"}}>—</span>}
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            )}
-
-            {/* ── DETALLE ── */}
-            {total>0 && calidadTab==="detalle" && (
-              <div style={{background:S.surface,border:S.border,borderRadius:12,overflow:"hidden"}}>
-                <div style={{padding:"16px 20px",borderBottom:S.border,display:"flex",alignItems:"center",gap:12,flexWrap:"wrap"}}>
-                  <div style={{fontWeight:600,fontSize:14}}>📋 Detalle Clientes — {calidadCamada}</div>
-                  <input value={calidadSearch} onChange={e=>setCalidadSearch(e.target.value)}
-                    placeholder="Buscar por vendedor, RUT u orden..."
-                    style={{marginLeft:"auto",background:S.surface2,border:S.border,borderRadius:8,padding:"7px 12px",color:"#e8ecf4",fontFamily:"inherit",fontSize:12,outline:"none",width:260}}/>
-                </div>
-                <div style={{maxHeight:480,overflowY:"auto"}}>
-                  <table style={{width:"100%",borderCollapse:"collapse"}}>
-                    <thead style={{position:"sticky",top:0,zIndex:1}}>
-                      <tr style={{background:S.surface2,borderBottom:S.border}}>
-                        {["RUT","Orden","Vendedor","Mes 1","Mes 2","Mes 3"].map(h=>(
-                          <th key={h} style={{padding:"10px 14px",textAlign:"left",fontSize:10,fontWeight:600,textTransform:"uppercase",letterSpacing:".08em",color:"#7a8399"}}>{h}</th>
-                        ))}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {!detalle.length&&<tr><td colSpan={6} style={{padding:"40px",textAlign:"center",color:"#4a5168",fontSize:13}}>Sin resultados</td></tr>}
-                      {detalle.slice(0,200).map(r=>(
-                        <tr key={r.id} style={{borderBottom:S.border}} onMouseEnter={ev=>ev.currentTarget.style.background=S.surface2} onMouseLeave={ev=>ev.currentTarget.style.background="transparent"}>
-                          <td style={{padding:"10px 14px",fontFamily:"monospace",fontSize:12,color:"#7a8399"}}>{r.rut}</td>
-                          <td style={{padding:"10px 14px",fontFamily:"monospace",fontSize:12,color:"#7a8399"}}>{r.orden}</td>
-                          <td style={{padding:"10px 14px",fontSize:12,color:"#e8ecf4",maxWidth:180}}>
-                            <div style={{overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{r.usuario}</div>
-                          </td>
-                          <td style={{padding:"10px 14px"}}>{estadoBadge(r.mes1)}</td>
-                          <td style={{padding:"10px 14px"}}>{estadoBadge(r.mes2)}</td>
-                          <td style={{padding:"10px 14px"}}>{estadoBadge(r.mes3)}</td>
-                        </tr>
-                      ))}
-                      {detalle.length>200&&<tr><td colSpan={6} style={{padding:"12px",textAlign:"center",color:"#4a5168",fontSize:12}}>Mostrando 200 de {detalle.length} — usa el buscador para filtrar</td></tr>}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            )}
-          </div>
-        );
-      })()}
 
       {/* ── USUARIOS ── */}
       {view==="users" && (
