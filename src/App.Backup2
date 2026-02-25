@@ -60,18 +60,10 @@ const DEMO = [
 ];
 
 const DEMO_BILLING = [
-  {id:"b1",dept:"Movistar",month:"Febrero",
-   baf:{qty:620,val:52000},tv:{qty:95,val:32000},voz:{qty:0,val:0},
-   totalCalculado:620*52000+95*32000,totalFactura:37430000,notas:"Liquidación Feb 2026"},
-  {id:"b2",dept:"Entel",month:"Febrero",
-   baf:{qty:380,val:48000},tv:{qty:80,val:28000},voz:{qty:20,val:25000},
-   totalCalculado:380*48000+80*28000+20*25000,totalFactura:21740000,notas:""},
-  {id:"b3",dept:"Wom",month:"Febrero",
-   baf:{qty:250,val:45000},tv:{qty:45,val:26000},voz:{qty:15,val:22000},
-   totalCalculado:250*45000+45*26000+15*22000,totalFactura:13920000,notas:""},
-  {id:"b4",dept:"Movistar",month:"Enero",
-   baf:{qty:580,val:52000},tv:{qty:80,val:32000},voz:{qty:20,val:30000},
-   totalCalculado:580*52000+80*32000+20*30000,totalFactura:34760000,notas:""},
+  {id:"b1",dept:"Movistar",month:"Febrero",productos:715,valorUnitario:52000,total:715*52000,notas:"Liquidación Feb 2026"},
+  {id:"b2",dept:"Entel",   month:"Febrero",productos:480,valorUnitario:48000,total:480*48000,notas:""},
+  {id:"b3",dept:"Wom",     month:"Febrero",productos:310,valorUnitario:45000,total:310*45000,notas:""},
+  {id:"b4",dept:"Movistar",month:"Enero",  productos:680,valorUnitario:52000,total:680*52000,notas:""},
 ];
 
 // ── CALIDAD DATA (Movistar) ──
@@ -252,142 +244,37 @@ function Modal({ onClose, onSave, entry, userDept }) {
 
 // ── BILLING MODAL ──
 function BillingModal({ onClose, onSave, entry }) {
-  const [dept,   setDept]   = useState(entry?.dept  || "Movistar");
-  const [month,  setMonth]  = useState(entry?.month || MONTHS[new Date().getMonth()]);
-  const [bafQty, setBafQty] = useState(entry?.baf?.qty || "");
-  const [bafVal, setBafVal] = useState(entry?.baf?.val || "");
-  const [tvQty,  setTvQty]  = useState(entry?.tv?.qty  || "");
-  const [tvVal,  setTvVal]  = useState(entry?.tv?.val  || "");
-  const [vozQty, setVozQty] = useState(entry?.voz?.qty || "");
-  const [vozVal, setVozVal] = useState(entry?.voz?.val || "");
-  const [totalFactura, setTotalFactura] = useState(entry?.totalFactura || "");
-  const [notas,  setNotas]  = useState(entry?.notas || "");
-  const [tieneReliq, setTieneReliq] = useState(entry?.reliquidacion != null ? true : false);
-  const [reliqMonto, setReliqMonto] = useState(entry?.reliquidacion?.monto || "");
-
-  const bafTotal = (parseFloat(bafQty)||0) * (parseFloat(bafVal)||0);
-  const tvTotal  = (parseFloat(tvQty)||0)  * (parseFloat(tvVal)||0);
-  const vozTotal = (parseFloat(vozQty)||0) * (parseFloat(vozVal)||0);
-  const totalCalculado = bafTotal + tvTotal + vozTotal;
-  const diff = (parseFloat(totalFactura)||0) - totalCalculado;
-  const totalFinal = (parseFloat(totalFactura)||0) + (tieneReliq ? (parseFloat(reliqMonto)||0) : 0);
-
-  const fi  = { width:"100%",background:"#181b22",border:"1px solid #1e2330",borderRadius:8,padding:"9px 12px",color:"#e8ecf4",fontFamily:"inherit",fontSize:13,outline:"none",boxSizing:"border-box" };
-  const lbl = txt => <label style={{fontSize:10,color:"#7a8399",textTransform:"uppercase",letterSpacing:".08em",display:"block",marginBottom:5}}>{txt}</label>;
-
+  const [dept,      setDept]      = useState(entry?.dept      || "Movistar");
+  const [month,     setMonth]     = useState(entry?.month     || MONTHS[new Date().getMonth()]);
+  const [productos, setProductos] = useState(entry?.productos || "");
+  const [valorUnit, setValorUnit] = useState(entry?.valorUnitario || "");
+  const [notas,     setNotas]     = useState(entry?.notas     || "");
+  const total = (parseFloat(productos)||0) * (parseFloat(valorUnit)||0);
+  const fi = { width:"100%",background:"#181b22",border:"1px solid #1e2330",borderRadius:8,padding:"9px 12px",color:"#e8ecf4",fontFamily:"inherit",fontSize:13,outline:"none" };
+  const lbl = txt => <label style={{fontSize:11,color:"#7a8399",textTransform:"uppercase",letterSpacing:".08em",display:"block",marginBottom:6}}>{txt}</label>;
   const save = () => {
-    if (!totalFactura) { alert("Ingresa el Total de la Factura"); return; }
-    if (tieneReliq && !reliqMonto) { alert("Ingresa el monto de la reliquidación"); return; }
-    onSave({
-      dept, month, notas,
-      baf: { qty: parseFloat(bafQty)||0, val: parseFloat(bafVal)||0 },
-      tv:  { qty: parseFloat(tvQty)||0,  val: parseFloat(tvVal)||0  },
-      voz: { qty: parseFloat(vozQty)||0, val: parseFloat(vozVal)||0 },
-      totalCalculado,
-      totalFactura: parseFloat(totalFactura)||0,
-      reliquidacion: tieneReliq ? { monto: parseFloat(reliqMonto)||0 } : null,
-      totalFinal,
-    });
+    if (!productos||!valorUnit) { alert("Completa productos y valor unitario"); return; }
+    onSave({ dept, month, productos:parseFloat(productos), valorUnitario:parseFloat(valorUnit), total, notas });
   };
-
-  const rowStyle = { display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:10, marginBottom:12, alignItems:"end" };
-  const badge = (label, color) => <div style={{background:`rgba(${color},.12)`,border:`1px solid rgba(${color},.3)`,borderRadius:6,padding:"5px 10px",fontSize:11,fontWeight:700,color:`rgb(${color})`,textAlign:"center"}}>{label}</div>;
-
   return (
     <div onClick={e=>e.target===e.currentTarget&&onClose()} style={{position:"fixed",inset:0,background:"rgba(0,0,0,.75)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:200,backdropFilter:"blur(4px)"}}>
-      <div style={{background:"#111318",border:"1px solid #2a3045",borderRadius:16,padding:28,width:520,maxWidth:"95vw",maxHeight:"90vh",overflowY:"auto"}}>
-        <div style={{fontWeight:700,fontSize:18,marginBottom:20}}>{entry?"Editar Facturación":"Registrar Facturación"}</div>
-
-        {/* Dept + Mes */}
-        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14,marginBottom:16}}>
+      <div style={{background:"#111318",border:"1px solid #2a3045",borderRadius:16,padding:32,width:440,maxWidth:"95vw"}}>
+        <div style={{fontWeight:700,fontSize:18,marginBottom:24}}>{entry?"Editar Facturación":"Registrar Facturación"}</div>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:16}}>
           <div>{lbl("Departamento")}<select style={fi} value={dept} onChange={e=>setDept(e.target.value)}>{DEPTS.map(d=><option key={d}>{d}</option>)}</select></div>
           <div>{lbl("Mes")}<select style={fi} value={month} onChange={e=>setMonth(e.target.value)}>{MONTHS.map(m=><option key={m}>{m}</option>)}</select></div>
+          <div>{lbl("Productos facturados")}<input style={fi} type="number" value={productos} onChange={e=>setProductos(e.target.value)} placeholder="715"/></div>
+          <div>{lbl("Valor unitario ($)")}<input style={fi} type="number" value={valorUnit} onChange={e=>setValorUnit(e.target.value)} placeholder="52000"/></div>
+          <div style={{gridColumn:"1/-1"}}>{lbl("Notas")}<input style={fi} value={notas} onChange={e=>setNotas(e.target.value)} placeholder="Ej: Liquidación Febrero"/></div>
         </div>
-
-        {/* Header labels */}
-        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10,marginBottom:6}}>
-          <div>{badge("BAF","0,181,226")}</div>
-          <div>{badge("TV","167,139,250")}</div>
-          <div>{badge("VOZ","34,197,94")}</div>
-        </div>
-
-        {/* Qty row */}
-        <div style={rowStyle}>
-          <div>{lbl("Cantidad BAF")}<input style={fi} type="number" value={bafQty} onChange={e=>setBafQty(e.target.value)} placeholder="620"/></div>
-          <div>{lbl("Cantidad TV")}<input style={fi} type="number" value={tvQty} onChange={e=>setTvQty(e.target.value)} placeholder="95"/></div>
-          <div>{lbl("Cantidad VOZ")}<input style={fi} type="number" value={vozQty} onChange={e=>setVozQty(e.target.value)} placeholder="0"/></div>
-        </div>
-
-        {/* Val row */}
-        <div style={rowStyle}>
-          <div>{lbl("Valor Unit. BAF ($)")}<input style={fi} type="number" value={bafVal} onChange={e=>setBafVal(e.target.value)} placeholder="52000"/></div>
-          <div>{lbl("Valor Unit. TV ($)")}<input style={fi} type="number" value={tvVal} onChange={e=>setTvVal(e.target.value)} placeholder="32000"/></div>
-          <div>{lbl("Valor Unit. VOZ ($)")}<input style={fi} type="number" value={vozVal} onChange={e=>setVozVal(e.target.value)} placeholder="30000"/></div>
-        </div>
-
-        {/* Subtotals */}
-        {(bafQty||tvQty||vozQty) && (
-          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10,marginBottom:16}}>
-            {[["BAF",bafTotal,"0,181,226"],[" TV",tvTotal,"167,139,250"],["VOZ",vozTotal,"34,197,94"]].map(([lbl,val,c])=>(
-              <div key={lbl} style={{background:"#0a0b0e",borderRadius:7,padding:"8px 10px",textAlign:"center"}}>
-                <div style={{fontSize:10,color:"#7a8399",marginBottom:2}}>{lbl}</div>
-                <div style={{fontWeight:700,fontSize:13,color:`rgb(${c})`}}>{fmtMoney(val)}</div>
-              </div>
-            ))}
+        {productos && valorUnit && (
+          <div style={{background:"#0a0b0e",borderRadius:8,padding:12,marginTop:16,textAlign:"center"}}>
+            <div style={{fontSize:11,color:"#7a8399",marginBottom:4}}>TOTAL FACTURADO</div>
+            <div style={{fontWeight:800,fontSize:22,color:"#22c55e"}}>{fmtMoney(total)}</div>
+            <div style={{fontSize:11,color:"#4a5168",marginTop:2}}>{productos} productos × {fmtMoney(parseFloat(valorUnit)||0)}</div>
           </div>
         )}
-
-        {/* Total calculado */}
-        <div style={{background:"#0a0b0e",borderRadius:8,padding:"10px 14px",marginBottom:14,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-          <span style={{fontSize:12,color:"#7a8399"}}>Total calculado (BAF+TV+VOZ)</span>
-          <span style={{fontWeight:700,fontSize:16,color:"#e8ecf4"}}>{fmtMoney(totalCalculado)}</span>
-        </div>
-
-        {/* Total factura real */}
-        <div style={{marginBottom:14}}>
-          {lbl("Total de la Factura ($)")}
-          <input style={{...fi,fontSize:16,fontWeight:700,color:"#22c55e"}} type="number" value={totalFactura} onChange={e=>setTotalFactura(e.target.value)} placeholder="Ingresa el total real de la factura"/>
-        </div>
-
-        {/* Diferencia */}
-        {totalFactura && totalCalculado > 0 && (
-          <div style={{background:Math.abs(diff)<1000?"rgba(34,197,94,.08)":"rgba(239,68,68,.08)",border:`1px solid ${Math.abs(diff)<1000?"rgba(34,197,94,.2)":"rgba(239,68,68,.2)"}`,borderRadius:8,padding:"10px 14px",marginBottom:14,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-            <span style={{fontSize:12,color:"#7a8399"}}>Diferencia (factura - calculado)</span>
-            <span style={{fontWeight:700,fontSize:14,color:Math.abs(diff)<1000?"#22c55e":"#ef4444"}}>{diff>=0?"+":""}{fmtMoney(diff)}</span>
-          </div>
-        )}
-
-        <div style={{marginBottom:20}}>{lbl("Notas")}<input style={fi} value={notas} onChange={e=>setNotas(e.target.value)} placeholder="Ej: Liquidación Febrero"/></div>
-
-        {/* Reliquidación */}
-        <div style={{border:"1px solid #2a3045",borderRadius:10,padding:16,marginBottom:20}}>
-          <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom: tieneReliq ? 14 : 0}}>
-            <div>
-              <div style={{fontWeight:600,fontSize:13,color:"#e8ecf4"}}>⚖️ Reliquidación</div>
-              <div style={{fontSize:11,color:"#4a5168",marginTop:2}}>Monto adicional por apelación</div>
-            </div>
-            <div style={{display:"flex",alignItems:"center",gap:8}}>
-              <span style={{fontSize:12,color:"#7a8399"}}>{tieneReliq?"Sí":"No"}</span>
-              <div onClick={()=>setTieneReliq(p=>!p)} style={{width:40,height:22,borderRadius:11,background:tieneReliq?"#f97316":"#2a3045",cursor:"pointer",position:"relative",transition:"background .2s"}}>
-                <div style={{position:"absolute",top:3,left:tieneReliq?20:3,width:16,height:16,borderRadius:"50%",background:"#fff",transition:"left .2s"}}/>
-              </div>
-            </div>
-          </div>
-          {tieneReliq && (
-            <div>
-              {lbl("Monto reliquidación ($)")}
-              <input style={{...fi,color:"#f97316",fontWeight:700,fontSize:15}} type="number" value={reliqMonto} onChange={e=>setReliqMonto(e.target.value)} placeholder="Ej: 1.250.000"/>
-              {reliqMonto && (
-                <div style={{marginTop:12,background:"rgba(249,115,22,.08)",border:"1px solid rgba(249,115,22,.25)",borderRadius:8,padding:"10px 14px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-                  <span style={{fontSize:12,color:"#7a8399"}}>Total Final (Factura + Reliquidación)</span>
-                  <span style={{fontWeight:800,fontSize:16,color:"#f97316"}}>{fmtMoney(totalFinal)}</span>
-                </div>
-              )}
-            </div>
-          )}
-        </div>
-
-        <div style={{display:"flex",gap:10,justifyContent:"flex-end"}}>
+        <div style={{display:"flex",gap:10,justifyContent:"flex-end",marginTop:24}}>
           <button onClick={onClose} style={{background:"#181b22",border:"1px solid #2a3045",borderRadius:8,padding:"9px 20px",color:"#7a8399",cursor:"pointer",fontFamily:"inherit",fontSize:13}}>Cancelar</button>
           <button onClick={save} style={{background:"#22c55e",border:"none",borderRadius:8,padding:"9px 20px",color:"#fff",cursor:"pointer",fontWeight:600,fontSize:13}}>Guardar</button>
         </div>
@@ -399,23 +286,6 @@ function BillingModal({ onClose, onSave, entry }) {
 function Toast({ msg, type }) {
   if (!msg) return null;
   return <div style={{position:"fixed",bottom:24,right:24,background:"#181b22",border:`1px solid ${type==="error"?"rgba(239,68,68,.3)":"rgba(34,197,94,.3)"}`,borderRadius:8,padding:"12px 20px",fontSize:13,color:type==="error"?"#ef4444":"#22c55e",zIndex:300}}>{msg}</div>;
-}
-
-// ── CONFIRM MODAL ──
-function ConfirmModal({ msg, onConfirm, onCancel }) {
-  return (
-    <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.75)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:400,backdropFilter:"blur(4px)"}}>
-      <div style={{background:"#111318",border:"1px solid #2a3045",borderRadius:14,padding:28,width:320,maxWidth:"90vw",textAlign:"center"}}>
-        <div style={{fontSize:28,marginBottom:12}}>🗑️</div>
-        <div style={{fontWeight:600,fontSize:15,color:"#e8ecf4",marginBottom:8}}>¿Eliminar?</div>
-        <div style={{fontSize:13,color:"#7a8399",marginBottom:24}}>{msg||"Esta acción no se puede deshacer."}</div>
-        <div style={{display:"flex",gap:10,justifyContent:"center"}}>
-          <button onClick={onCancel} style={{background:"#181b22",border:"1px solid #2a3045",borderRadius:8,padding:"9px 24px",color:"#7a8399",cursor:"pointer",fontFamily:"inherit",fontSize:13}}>Cancelar</button>
-          <button onClick={onConfirm} style={{background:"#ef4444",border:"none",borderRadius:8,padding:"9px 24px",color:"#fff",cursor:"pointer",fontWeight:600,fontSize:13}}>Eliminar</button>
-        </div>
-      </div>
-    </div>
-  );
 }
 
 // ── USER MODAL ──
@@ -507,7 +377,6 @@ export default function App() {
   const [billModal,  setBillModal]    = useState(null);
   const [toast,      setToast]        = useState(null);
   const [userModal,  setUserModal]    = useState(null); // null | "new" | user object
-  const [confirmModal, setConfirmModal] = useState(null); // null | { msg, onConfirm }
   const [appUsers,   setAppUsers]     = useState([
     { id:"u1", email:"admin@innotel.com",    pass:"Admin2026!",  name:"Administrador", role:"admin",  dept:null },
     { id:"u2", email:"movistar@innotel.com", pass:"Mov2026!",    name:"Usr. Movistar", role:"editor", dept:"Movistar" },
@@ -519,7 +388,6 @@ export default function App() {
   useEffect(() => { setSelectedWeek(0); }, [dashMonth]);
 
   const showToast = (msg, type="success") => { setToast({msg,type}); setTimeout(()=>setToast(null),2800); };
-  const askConfirm = (msg, onConfirm) => setConfirmModal({ msg, onConfirm });
   const doLogin = () => {
     const u = appUsers.find(u=>u.email===loginEmail && u.pass===loginPass);
     if (!u) { setLoginErr("Credenciales incorrectas."); return; }
@@ -613,13 +481,13 @@ export default function App() {
     else               { setEntries(p=>p.map(e=>e.id===modal.id?{...e,...data}:e)); showToast("Gasto actualizado ✓"); }
     setModal(null);
   };
-  const deleteEntry   = id => askConfirm("¿Eliminar este gasto?",   () => { setEntries(p=>p.filter(e=>e.id!==id)); showToast("Eliminado"); setConfirmModal(null); });
+  const deleteEntry = id => { if (!confirm("¿Eliminar?")) return; setEntries(p=>p.filter(e=>e.id!==id)); showToast("Eliminado"); };
   const saveBilling = data => {
     if (billModal==="new") { setBilling(p=>[...p,{id:"b"+Date.now(),...data}]); showToast("Facturación registrada ✓"); }
     else                   { setBilling(p=>p.map(b=>b.id===billModal.id?{...b,...data}:b)); showToast("Facturación actualizada ✓"); }
     setBillModal(null);
   };
-  const deleteBilling = id => askConfirm("¿Eliminar este registro de facturación?", () => { setBilling(p=>p.filter(b=>b.id!==id)); showToast("Eliminado"); setConfirmModal(null); });
+  const deleteBilling = id => { if (!confirm("¿Eliminar?")) return; setBilling(p=>p.filter(b=>b.id!==id)); showToast("Eliminado"); };
 
   const depts = currentUser?.role==="admin"||!currentUser?.dept ? ["all","Movistar","Entel","Wom"] : [currentUser.dept];
 
@@ -694,16 +562,16 @@ export default function App() {
 
     // ── Hoja: Facturación ──
     const billRows = [
-      ["Facturación — Ingresos vs Gastos","","","","","","","","","","","",""],
+      ["Facturación — Ingresos vs Gastos","","","","","","","",""],
       [],
-      ["Departamento","Mes","BAF Qty","BAF Val","TV Qty","TV Val","VOZ Qty","VOZ Val","Total Calculado","Total Factura","Diferencia","Total Gastos","Margen"],
+      ["Departamento","Mes","Productos","Valor Unitario","Total Facturado","Total Gastos","Com. Pagadas","Neto Real","Margen"],
     ];
     billing.forEach(b => {
       const gastos   = entries.filter(e=>e.dept===b.dept&&e.month===b.month).reduce((s,e)=>s+e.amount,0);
-      const totalFact = b.totalFactura||b.total||0;
-      const diff      = totalFact - (b.totalCalculado||0);
-      const margen    = totalFact - gastos;
-      billRows.push([b.dept, b.month, b.baf?.qty||0, b.baf?.val||0, b.tv?.qty||0, b.tv?.val||0, b.voz?.qty||0, b.voz?.val||0, b.totalCalculado||0, totalFact, diff, gastos, margen]);
+      const comPag   = entries.filter(e=>e.dept===b.dept&&e.month===b.month&&e.isComision).reduce((s,e)=>s+e.amount,0);
+      const neto     = entries.filter(e=>e.dept===b.dept&&e.month===b.month&&e.isComision).reduce((s,e)=>s+(e.netoComision||e.amount),0);
+      const margen   = b.total - gastos;
+      billRows.push([b.dept, b.month, b.productos, b.valorUnitario, b.total, gastos, comPag, neto, margen]);
     });
     const wsBill = XLSX.utils.aoa_to_sheet(billRows);
     autoWidth(wsBill);
@@ -1003,7 +871,7 @@ export default function App() {
           <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(300px,1fr))",gap:16,marginBottom:24}}>
             {DEPTS.map(dept=>{
               const billRec = filteredBilling.filter(b=>b.dept===dept);
-              const totalFacturado = billRec.reduce((s,b)=>s+(b.totalFinal||b.totalFactura||b.total||0),0);
+              const totalFacturado = billRec.reduce((s,b)=>s+b.total,0);
               const totalGastos    = entries.filter(e=>e.dept===dept&&e.month===billMonth).reduce((s,e)=>s+e.amount,0);
               const totalComPagado = entries.filter(e=>e.dept===dept&&e.month===billMonth&&e.isComision).reduce((s,e)=>s+e.amount,0);
               const totalNeto      = entries.filter(e=>e.dept===dept&&e.month===billMonth&&e.isComision).reduce((s,e)=>s+(e.netoComision||e.amount),0);
@@ -1046,41 +914,19 @@ export default function App() {
             </div>
             <table style={{width:"100%",borderCollapse:"collapse"}}>
               <thead><tr style={{background:S.surface2,borderBottom:S.border}}>
-                {["Depto","Mes","BAF","TV","VOZ","Total Calc.","Total Factura","Reliq.","Total Final","Notas",""].map(h=><th key={h} style={{padding:"10px 12px",textAlign:"left",fontSize:10,fontWeight:600,textTransform:"uppercase",letterSpacing:".08em",color:"#7a8399"}}>{h}</th>)}
+                {["Departamento","Mes","Productos","Valor Unitario","Total Facturado","Notas",""].map(h=><th key={h} style={{padding:"10px 14px",textAlign:"left",fontSize:10,fontWeight:600,textTransform:"uppercase",letterSpacing:".08em",color:"#7a8399"}}>{h}</th>)}
               </tr></thead>
               <tbody>
-                {!filteredBilling.length&&<tr><td colSpan={10} style={{padding:"40px",textAlign:"center",color:"#4a5168",fontSize:13}}>No hay registros de facturación para {billMonth}</td></tr>}
-                {filteredBilling.map(b=>{
-                  const diff = (b.totalFactura||0) - (b.totalCalculado||0);
-                  const reliqMonto = b.reliquidacion?.monto || 0;
-                  const totalFinal = (b.totalFinal) || (b.totalFactura||0) + reliqMonto;
-                  return (
+                {!filteredBilling.length&&<tr><td colSpan={7} style={{padding:"40px",textAlign:"center",color:"#4a5168",fontSize:13}}>No hay registros de facturación para {billMonth}</td></tr>}
+                {filteredBilling.map(b=>(
                   <tr key={b.id} style={{borderBottom:S.border}} onMouseEnter={ev=>ev.currentTarget.style.background=S.surface2} onMouseLeave={ev=>ev.currentTarget.style.background="transparent"}>
-                    <td style={{padding:"12px 12px"}}><span style={{background:`rgba(${deptRgb(b.dept)},.12)`,color:deptColor(b.dept),padding:"3px 10px",borderRadius:20,fontSize:11,fontWeight:600}}>{b.dept}</span></td>
-                    <td style={{padding:"12px 12px",color:"#7a8399",fontSize:12}}>{b.month}</td>
-                    <td style={{padding:"12px 12px"}}>
-                      <div style={{fontFamily:"monospace",fontWeight:600,color:"#00b5e2",fontSize:12}}>{(b.baf?.qty||0).toLocaleString("es-CL")}</div>
-                      <div style={{fontSize:10,color:"#4a5168"}}>{fmtMoney(b.baf?.val||0)}/u</div>
-                    </td>
-                    <td style={{padding:"12px 12px"}}>
-                      <div style={{fontFamily:"monospace",fontWeight:600,color:"#a78bfa",fontSize:12}}>{(b.tv?.qty||0).toLocaleString("es-CL")}</div>
-                      <div style={{fontSize:10,color:"#4a5168"}}>{fmtMoney(b.tv?.val||0)}/u</div>
-                    </td>
-                    <td style={{padding:"12px 12px"}}>
-                      <div style={{fontFamily:"monospace",fontWeight:600,color:"#22c55e",fontSize:12}}>{(b.voz?.qty||0).toLocaleString("es-CL")}</div>
-                      <div style={{fontSize:10,color:"#4a5168"}}>{fmtMoney(b.voz?.val||0)}/u</div>
-                    </td>
-                    <td style={{padding:"12px 12px",fontFamily:"monospace",fontSize:12,color:"#7a8399"}}>{fmtMoney(b.totalCalculado||0)}</td>
-                    <td style={{padding:"12px 12px",fontFamily:"monospace",fontWeight:700,color:"#22c55e",fontSize:13}}>{fmtMoney(b.totalFactura||0)}</td>
-                    <td style={{padding:"12px 12px"}}>
-                      {b.reliquidacion
-                        ? <span style={{background:"rgba(249,115,22,.12)",color:"#f97316",padding:"3px 10px",borderRadius:20,fontSize:11,fontWeight:700}}>+{fmtMoney(reliqMonto)}</span>
-                        : <span style={{color:"#4a5168",fontSize:11}}>—</span>
-                      }
-                    </td>
-                    <td style={{padding:"12px 12px",fontFamily:"monospace",fontWeight:800,fontSize:13,color:b.reliquidacion?"#f97316":"#22c55e"}}>{fmtMoney(totalFinal)}</td>
-                    <td style={{padding:"12px 12px",fontSize:11,color:"#4a5168"}}>{b.notas||"—"}</td>
-                    <td style={{padding:"12px 12px"}}>
+                    <td style={{padding:"12px 14px"}}><span style={{background:`rgba(${deptRgb(b.dept)},.12)`,color:deptColor(b.dept),padding:"3px 10px",borderRadius:20,fontSize:11,fontWeight:600}}>{b.dept}</span></td>
+                    <td style={{padding:"12px 14px",color:"#7a8399"}}>{b.month}</td>
+                    <td style={{padding:"12px 14px",fontFamily:"monospace",fontWeight:600}}>{b.productos.toLocaleString("es-CL")}</td>
+                    <td style={{padding:"12px 14px",fontFamily:"monospace"}}>{fmtMoney(b.valorUnitario)}</td>
+                    <td style={{padding:"12px 14px",fontFamily:"monospace",fontWeight:700,color:"#22c55e"}}>{fmtMoney(b.total)}</td>
+                    <td style={{padding:"12px 14px",fontSize:12,color:"#4a5168"}}>{b.notas||"—"}</td>
+                    <td style={{padding:"12px 14px"}}>
                       {currentUser.role==="admin"&&(
                         <div style={{display:"flex",gap:4}}>
                           <button onClick={()=>setBillModal(b)} style={{background:S.surface2,border:S.border2,borderRadius:5,width:26,height:26,display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",color:"#7a8399",fontSize:12}}>✎</button>
@@ -1089,8 +935,7 @@ export default function App() {
                       )}
                     </td>
                   </tr>
-                  );
-                })}
+                ))}
               </tbody>
             </table>
           </div>
@@ -1129,7 +974,7 @@ export default function App() {
                     <td style={{padding:"14px 16px"}}>
                       <div style={{display:"flex",gap:4}}>
                         <button onClick={()=>setUserModal(u)} style={{background:S.surface2,border:S.border2,borderRadius:5,width:26,height:26,display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",color:"#7a8399",fontSize:12}}>✎</button>
-                        {u.id!==currentUser.id && <button onClick={()=>askConfirm("¿Eliminar usuario "+u.name+"?", ()=>{ setAppUsers(p=>p.filter(x=>x.id!==u.id)); showToast("Usuario eliminado"); setConfirmModal(null); })} style={{background:S.surface2,border:S.border2,borderRadius:5,width:26,height:26,display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",color:"#ef4444",fontSize:12}}>✕</button>}
+                        {u.id!==currentUser.id && <button onClick={()=>{if(!confirm("¿Eliminar usuario?"))return;setAppUsers(p=>p.filter(x=>x.id!==u.id));showToast("Usuario eliminado");}} style={{background:S.surface2,border:S.border2,borderRadius:5,width:26,height:26,display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",color:"#ef4444",fontSize:12}}>✕</button>}
                       </div>
                     </td>
                   </tr>
@@ -1148,7 +993,6 @@ export default function App() {
         setUserModal(null);
       }} entry={userModal==="new"?null:userModal}/>}
       {toast && <Toast msg={toast.msg} type={toast.type}/>}
-      {confirmModal && <ConfirmModal msg={confirmModal.msg} onConfirm={confirmModal.onConfirm} onCancel={()=>setConfirmModal(null)}/>}
     </div>
   );
 }
