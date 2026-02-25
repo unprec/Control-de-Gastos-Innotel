@@ -303,21 +303,21 @@ function BillingModal({ onClose, onSave, entry }) {
 
         {/* Header labels */}
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10,marginBottom:6}}>
-          <div>{badge("BAF","0,181,226")}</div>
+          <div>{badge("NET","0,181,226")}</div>
           <div>{badge("TV","167,139,250")}</div>
           <div>{badge("VOZ","34,197,94")}</div>
         </div>
 
         {/* Qty row */}
         <div style={rowStyle}>
-          <div>{lbl("Cantidad BAF")}<input style={fi} type="number" value={bafQty} onChange={e=>setBafQty(e.target.value)} placeholder="620"/></div>
+          <div>{lbl("Cantidad NET")}<input style={fi} type="number" value={bafQty} onChange={e=>setBafQty(e.target.value)} placeholder="620"/></div>
           <div>{lbl("Cantidad TV")}<input style={fi} type="number" value={tvQty} onChange={e=>setTvQty(e.target.value)} placeholder="95"/></div>
           <div>{lbl("Cantidad VOZ")}<input style={fi} type="number" value={vozQty} onChange={e=>setVozQty(e.target.value)} placeholder="0"/></div>
         </div>
 
         {/* Val row */}
         <div style={rowStyle}>
-          <div>{lbl("Valor Unit. BAF ($)")}<input style={fi} type="number" value={bafVal} onChange={e=>setBafVal(e.target.value)} placeholder="52000"/></div>
+          <div>{lbl("Valor Unit. NET ($)")}<input style={fi} type="number" value={bafVal} onChange={e=>setBafVal(e.target.value)} placeholder="52000"/></div>
           <div>{lbl("Valor Unit. TV ($)")}<input style={fi} type="number" value={tvVal} onChange={e=>setTvVal(e.target.value)} placeholder="32000"/></div>
           <div>{lbl("Valor Unit. VOZ ($)")}<input style={fi} type="number" value={vozVal} onChange={e=>setVozVal(e.target.value)} placeholder="30000"/></div>
         </div>
@@ -325,7 +325,7 @@ function BillingModal({ onClose, onSave, entry }) {
         {/* Subtotals */}
         {(bafQty||tvQty||vozQty) && (
           <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10,marginBottom:16}}>
-            {[["BAF",bafTotal,"0,181,226"],[" TV",tvTotal,"167,139,250"],["VOZ",vozTotal,"34,197,94"]].map(([lbl,val,c])=>(
+            {[["NET",bafTotal,"0,181,226"],[" TV",tvTotal,"167,139,250"],["VOZ",vozTotal,"34,197,94"]].map(([lbl,val,c])=>(
               <div key={lbl} style={{background:"#0a0b0e",borderRadius:7,padding:"8px 10px",textAlign:"center"}}>
                 <div style={{fontSize:10,color:"#7a8399",marginBottom:2}}>{lbl}</div>
                 <div style={{fontWeight:700,fontSize:13,color:`rgb(${c})`}}>{fmtMoney(val)}</div>
@@ -336,7 +336,7 @@ function BillingModal({ onClose, onSave, entry }) {
 
         {/* Total calculado */}
         <div style={{background:"#0a0b0e",borderRadius:8,padding:"10px 14px",marginBottom:14,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-          <span style={{fontSize:12,color:"#7a8399"}}>Total calculado (BAF+TV+VOZ)</span>
+          <span style={{fontSize:12,color:"#7a8399"}}>Total calculado (NET+TV+VOZ)</span>
           <span style={{fontWeight:700,fontSize:16,color:"#e8ecf4"}}>{fmtMoney(totalCalculado)}</span>
         </div>
 
@@ -695,7 +695,7 @@ export default function App() {
     const billRows = [
       ["Facturación — Ingresos vs Gastos","","","","","","","","","","","",""],
       [],
-      ["Departamento","Mes","BAF Qty","BAF Val","TV Qty","TV Val","VOZ Qty","VOZ Val","Total Calculado","Total Factura","Diferencia","Total Gastos","Margen"],
+      ["Departamento","Mes","NET Qty","NET Val","TV Qty","TV Val","VOZ Qty","VOZ Val","Total Calculado","Total Factura","Diferencia","Total Gastos","Margen"],
     ];
     billing.forEach(b => {
       const gastos   = entries.filter(e=>e.dept===b.dept&&e.month===b.month).reduce((s,e)=>s+e.amount,0);
@@ -1045,7 +1045,7 @@ export default function App() {
             </div>
             <table style={{width:"100%",borderCollapse:"collapse"}}>
               <thead><tr style={{background:S.surface2,borderBottom:S.border}}>
-                {["Depto","Mes","BAF","TV","VOZ","Total Calc.","Total Factura","Reliq.","Total Final","Notas",""].map(h=><th key={h} style={{padding:"10px 12px",textAlign:"left",fontSize:10,fontWeight:600,textTransform:"uppercase",letterSpacing:".08em",color:"#7a8399"}}>{h}</th>)}
+                {["Depto","Mes","NET","TV","VOZ","Total Calc.","Total Factura","Reliq.","Total Final","Notas",""].map(h=><th key={h} style={{padding:"10px 12px",textAlign:"left",fontSize:10,fontWeight:600,textTransform:"uppercase",letterSpacing:".08em",color:"#7a8399"}}>{h}</th>)}
               </tr></thead>
               <tbody>
                 {!filteredBilling.length&&<tr><td colSpan={10} style={{padding:"40px",textAlign:"center",color:"#4a5168",fontSize:13}}>No hay registros de facturación para {billMonth}</td></tr>}
