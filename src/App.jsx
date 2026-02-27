@@ -653,7 +653,9 @@ function UserModal({ onClose, onSave, entry }) {
 }
 
 export default function App() {
+  const API = "https://adexa.cl/api";
   const [currentUser, setCurrentUser] = useState(null);
+  const [loading, setLoading] = useState(false);
 
   // Load SheetJS on mount
   useEffect(() => {
@@ -663,11 +665,12 @@ export default function App() {
       document.head.appendChild(s);
     }
   }, []);
+
   const [loginEmail, setLoginEmail]   = useState("");
   const [loginPass,  setLoginPass]    = useState("");
   const [loginErr,   setLoginErr]     = useState("");
-  const [entries,    setEntries]      = useState([...DEMO]);
-  const [billing,    setBilling]      = useState([...DEMO_BILLING]);
+  const [entries,    setEntries]      = useState([]);
+  const [billing,    setBilling]      = useState([]);
   const [view,       setView]         = useState("dashboard");
   const [activeDept, setActiveDept]   = useState("all");
   const [dashDept,   setDashDept]     = useState("all");
@@ -677,45 +680,70 @@ export default function App() {
   const [filterCat,  setFilterCat]    = useState("");
   const [filterMonth,setFilterMonth]  = useState("");
   const [billMonth,  setBillMonth]    = useState(MONTHS[new Date().getMonth()]);
-  const [calidadData,   setCalidadData]   = useState({}); // { "Noviembre": [...], "Diciembre": [...] }
+  const [calidadData,   setCalidadData]   = useState({});
   const [calidadCamada, setCalidadCamada] = useState("Noviembre");
   const [calidadSearch, setCalidadSearch] = useState("");
-  const [calidadTab,    setCalidadTab]    = useState("resumen"); // resumen | vendedores | detalle
+  const [calidadTab,    setCalidadTab]    = useState("resumen");
   // ── REMUNERACIONES WOM ──
-  const [womTab,        setWomTab]        = useState("gastos"); // gastos | remuneraciones
+  const [womTab,        setWomTab]        = useState("gastos");
   const [remMonth,      setRemMonth]      = useState(MONTHS[new Date().getMonth()]);
-  const [remTab,        setRemTab]        = useState("resumen"); // resumen | trabajadores
-  const [cargos,        setCargos]        = useState([
-    { id:"c1", nombre:"Vendedor",   tipo:"vendedor",    valorVenta:70000, bonoVenta:0 },
-    { id:"c2", nombre:"Supervisor", tipo:"supervisor",  valorVenta:0,     bonoVenta:4000 },
-  ]);
+  const [remTab,        setRemTab]        = useState("resumen");
+  const [cargos,        setCargos]        = useState([]);
   const [trabajadores,  setTrabajadores]  = useState([]);
-  const [cargoModal,    setCargoModal]    = useState(null); // null | "new" | cargo obj
-  const [trabajadorModal, setTrabajadorModal] = useState(null); // null | "new" | trab obj
-  const [selectedWeek, setSelectedWeek] = useState(0); // 0 = semana actual
+  const [cargoModal,    setCargoModal]    = useState(null);
+  const [trabajadorModal, setTrabajadorModal] = useState(null);
+  const [selectedWeek, setSelectedWeek] = useState(0);
   const [modal,      setModal]        = useState(null);
   const [billModal,  setBillModal]    = useState(null);
   const [toast,      setToast]        = useState(null);
-  const [userModal,  setUserModal]    = useState(null); // null | "new" | user object
-  const [confirmModal, setConfirmModal] = useState(null); // null | { msg, onConfirm }
-  const [appUsers,   setAppUsers]     = useState([
-    { id:"u1", email:"admin@innotel.com",    pass:"Admin2026!",  name:"Administrador", role:"admin",  dept:null },
-    { id:"u2", email:"movistar@innotel.com", pass:"Mov2026!",    name:"Usr. Movistar", role:"editor", dept:"Movistar" },
-    { id:"u3", email:"entel@innotel.com",    pass:"Ent2026!",    name:"Usr. Entel",    role:"editor", dept:"Entel" },
-    { id:"u4", email:"wom@innotel.com",      pass:"Wom2026!",    name:"Usr. Wom",      role:"editor", dept:"Wom" },
-  ]);
+  const [userModal,  setUserModal]    = useState(null);
+  const [confirmModal, setConfirmModal] = useState(null);
+  const [appUsers,   setAppUsers]     = useState([]);
+
+  // ── API HELPERS ──
+  const apiFetch = async (url, opts={}) => {
+    const res = await fetch(API + url, { headers:{"Content-Type":"application/json"}, ...opts });
+    return res.json();
+  };
+
+  // ── LOAD ALL DATA ON LOGIN ──
+  const loadAllData = async () => {
+    setLoading(true);
+    try {
+      const [ents, bills, users, carg, trabs] = await Promise.all([
+        apiFetch("/entries.php"),
+        apiFetch("/billing.php"),
+        apiFetch("/users.php"),
+        apiFetch("/wom.php?resource=cargos"),
+        apiFetch("/wom.php?resource=trabajadores"),
+      ]);
+      setEntries(Array.isArray(ents) ? ents : []);
+      setBilling(Array.isArray(bills) ? bills : []);
+      setAppUsers(Array.isArray(users) ? users : []);
+      setCargos(Array.isArray(carg) ? carg : []);
+      setTrabajadores(Array.isArray(trabs) ? trabs : []);
+    } catch(e) { showToast("Error cargando datos","error"); }
+    setLoading(false);
+  };
 
   // Reset week when month changes
   useEffect(() => { setSelectedWeek(0); }, [dashMonth]);
 
   const showToast = (msg, type="success") => { setToast({msg,type}); setTimeout(()=>setToast(null),2800); };
   const askConfirm = (msg, onConfirm) => setConfirmModal({ msg, onConfirm });
-  const doLogin = () => {
-    const u = appUsers.find(u=>u.email===loginEmail && u.pass===loginPass);
-    if (!u) { setLoginErr("Credenciales incorrectas."); return; }
-    setLoginErr(""); setCurrentUser({...u});
-    setView(u.role==="admin" ? "dashboard" : "table");
-    if (u.dept) { setActiveDept(u.dept); setDashDept(u.dept); }
+
+  const doLogin = async () => {
+    setLoginErr("");
+    try {
+      const u = await apiFetch("/users.php?action=login", {
+        method:"POST", body: JSON.stringify({email:loginEmail, pass:loginPass})
+      });
+      if (u.error) { setLoginErr("Credenciales incorrectas."); return; }
+      setCurrentUser(u);
+      setView(u.role==="admin" ? "dashboard" : "table");
+      if (u.dept) { setActiveDept(u.dept); setDashDept(u.dept); }
+      await loadAllData();
+    } catch(e) { setLoginErr("Error de conexión."); }
   };
   const doLogout = () => { setCurrentUser(null); setView("dashboard"); };
 
@@ -799,18 +827,39 @@ export default function App() {
   const maxEntry  = dashData.reduce((m,e)=>!m||e.amount>m.amount?e:m,null);
   const minEntry  = dashData.reduce((m,e)=>!m||e.amount<m.amount?e:m,null);
 
-  const saveEntry = data => {
-    if (modal==="new") { setEntries(p=>[...p,{id:"e"+Date.now(),...data,by:currentUser.email.split("@")[0]}]); showToast("Gasto registrado ✓"); }
-    else               { setEntries(p=>p.map(e=>e.id===modal.id?{...e,...data}:e)); showToast("Gasto actualizado ✓"); }
+  const saveEntry = async data => {
+    const by = currentUser.email.split("@")[0];
+    if (modal==="new") {
+      const res = await apiFetch("/entries.php", {method:"POST", body:JSON.stringify({...data, by})});
+      setEntries(p=>[...p, {...data, id:res.id, by}]);
+      showToast("Gasto registrado ✓");
+    } else {
+      await apiFetch("/entries.php", {method:"PUT", body:JSON.stringify({...data, id:modal.id})});
+      setEntries(p=>p.map(e=>e.id===modal.id?{...e,...data}:e));
+      showToast("Gasto actualizado ✓");
+    }
     setModal(null);
   };
-  const deleteEntry   = id => askConfirm("¿Eliminar este gasto?",   () => { setEntries(p=>p.filter(e=>e.id!==id)); showToast("Eliminado"); setConfirmModal(null); });
-  const saveBilling = data => {
-    if (billModal==="new") { setBilling(p=>[...p,{id:"b"+Date.now(),...data}]); showToast("Facturación registrada ✓"); }
-    else                   { setBilling(p=>p.map(b=>b.id===billModal.id?{...b,...data}:b)); showToast("Facturación actualizada ✓"); }
+  const deleteEntry = id => askConfirm("¿Eliminar este gasto?", async () => {
+    await apiFetch("/entries.php?id="+id, {method:"DELETE"});
+    setEntries(p=>p.filter(e=>e.id!==id)); showToast("Eliminado"); setConfirmModal(null);
+  });
+  const saveBilling = async data => {
+    if (billModal==="new") {
+      const res = await apiFetch("/billing.php", {method:"POST", body:JSON.stringify(data)});
+      setBilling(p=>[...p, {...data, id:res.id}]);
+      showToast("Facturación registrada ✓");
+    } else {
+      await apiFetch("/billing.php", {method:"PUT", body:JSON.stringify({...data, id:billModal.id})});
+      setBilling(p=>p.map(b=>b.id===billModal.id?{...b,...data}:b));
+      showToast("Facturación actualizada ✓");
+    }
     setBillModal(null);
   };
-  const deleteBilling = id => askConfirm("¿Eliminar este registro de facturación?", () => { setBilling(p=>p.filter(b=>b.id!==id)); showToast("Eliminado"); setConfirmModal(null); });
+  const deleteBilling = id => askConfirm("¿Eliminar este registro de facturación?", async () => {
+    await apiFetch("/billing.php?id="+id, {method:"DELETE"});
+    setBilling(p=>p.filter(b=>b.id!==id)); showToast("Eliminado"); setConfirmModal(null);
+  });
 
   const depts = currentUser?.role==="admin"||!currentUser?.dept ? ["all","Movistar","Entel","Wom"] : [currentUser.dept];
 
@@ -919,7 +968,7 @@ export default function App() {
             <input type={t} value={v} onChange={e=>s(e.target.value)} onKeyDown={e=>e.key==="Enter"&&doLogin()} style={{width:"100%",background:"#181b22",border:"1px solid #1e2330",borderRadius:8,padding:"10px 14px",color:"#e8ecf4",fontFamily:"inherit",fontSize:14,outline:"none",marginBottom:16}}/>
           </div>
         ))}
-        <button onClick={doLogin} style={{width:"100%",background:"#4f7fff",border:"none",borderRadius:8,padding:11,color:"#fff",fontWeight:600,fontSize:14,cursor:"pointer"}}>Ingresar al Sistema</button>
+        <button onClick={doLogin} disabled={loading} style={{width:"100%",background:"#4f7fff",border:"none",borderRadius:8,padding:11,color:"#fff",fontWeight:600,fontSize:14,cursor:loading?"not-allowed":"pointer",opacity:loading?.7:1}}>{loading?"Cargando...":"Ingresar al Sistema"}</button>
         {loginErr && <div style={{color:"#ef4444",fontSize:12,marginTop:10,textAlign:"center"}}>{loginErr}</div>}
       </div>
     </div>
@@ -1425,7 +1474,7 @@ export default function App() {
                           {currentUser.role==="admin" && (
                             <div style={{display:"flex",gap:4}}>
                               <button onClick={()=>setTrabajadorModal(t)} style={{background:S.surface2,border:S.border2,borderRadius:5,width:26,height:26,display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",color:"#7a8399",fontSize:12}}>✎</button>
-                              <button onClick={()=>askConfirm(`¿Eliminar a ${t.nombre}?`,()=>{setTrabajadores(p=>p.filter(x=>x.id!==t.id));showToast("Eliminado");setConfirmModal(null);})} style={{background:S.surface2,border:S.border2,borderRadius:5,width:26,height:26,display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",color:"#7a8399",fontSize:12}}>✕</button>
+                              <button onClick={()=>askConfirm(`¿Eliminar a ${t.nombre}?`, async ()=>{await apiFetch("/wom.php?resource=trabajadores&id="+t.id,{method:"DELETE"}); setTrabajadores(p=>p.filter(x=>x.id!==t.id));showToast("Eliminado");setConfirmModal(null);})} style={{background:S.surface2,border:S.border2,borderRadius:5,width:26,height:26,display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",color:"#7a8399",fontSize:12}}>✕</button>
                             </div>
                           )}
                         </td>
@@ -1848,7 +1897,7 @@ export default function App() {
                     <td style={{padding:"14px 16px"}}>
                       <div style={{display:"flex",gap:4}}>
                         <button onClick={()=>setUserModal(u)} style={{background:S.surface2,border:S.border2,borderRadius:5,width:26,height:26,display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",color:"#7a8399",fontSize:12}}>✎</button>
-                        {u.id!==currentUser.id && <button onClick={()=>askConfirm("¿Eliminar usuario "+u.name+"?", ()=>{ setAppUsers(p=>p.filter(x=>x.id!==u.id)); showToast("Usuario eliminado"); setConfirmModal(null); })} style={{background:S.surface2,border:S.border2,borderRadius:5,width:26,height:26,display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",color:"#ef4444",fontSize:12}}>✕</button>}
+                        {u.id!==currentUser.id && <button onClick={()=>askConfirm("¿Eliminar usuario "+u.name+"?", async ()=>{ await apiFetch("/users.php?id="+u.id,{method:"DELETE"}); setAppUsers(p=>p.filter(x=>x.id!==u.id)); showToast("Usuario eliminado"); setConfirmModal(null); })} style={{background:S.surface2,border:S.border2,borderRadius:5,width:26,height:26,display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",color:"#ef4444",fontSize:12}}>✕</button>}
                       </div>
                     </td>
                   </tr>
@@ -1861,9 +1910,14 @@ export default function App() {
 
       {modal && <Modal onClose={()=>setModal(null)} onSave={saveEntry} entry={modal==="new"?null:modal} userDept={currentUser.dept}/>}
       {billModal && <BillingModal onClose={()=>setBillModal(null)} onSave={saveBilling} entry={billModal==="new"?null:billModal}/>}
-      {userModal && <UserModal onClose={()=>setUserModal(null)} onSave={data=>{
-        if(userModal==="new"){setAppUsers(p=>[...p,{id:"u"+Date.now(),...data}]);showToast("Usuario creado ✓");}
-        else{setAppUsers(p=>p.map(u=>u.id===userModal.id?{...u,...data}:u));showToast("Usuario actualizado ✓");}
+      {userModal && <UserModal onClose={()=>setUserModal(null)} onSave={async data=>{
+        if(userModal==="new"){
+          const res = await apiFetch("/users.php",{method:"POST",body:JSON.stringify(data)});
+          setAppUsers(p=>[...p,{...data,id:res.id}]); showToast("Usuario creado ✓");
+        } else {
+          await apiFetch("/users.php",{method:"PUT",body:JSON.stringify({...data,id:userModal.id})});
+          setAppUsers(p=>p.map(u=>u.id===userModal.id?{...u,...data}:u)); showToast("Usuario actualizado ✓");
+        }
         setUserModal(null);
       }} entry={userModal==="new"?null:userModal}/>}
       {toast && <Toast msg={toast.msg} type={toast.type}/>}
@@ -1881,7 +1935,10 @@ export default function App() {
                   </div>
                   <div style={{display:"flex",gap:4}}>
                     <button onClick={()=>setCargoModal(c)} style={{background:"#1e2330",border:"1px solid #2a3045",borderRadius:5,width:26,height:26,display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",color:"#7a8399",fontSize:12}}>✎</button>
-                    <button onClick={()=>askConfirm(`¿Eliminar cargo "${c.nombre}"?`,()=>{setCargos(p=>p.filter(x=>x.id!==c.id));showToast("Cargo eliminado");setConfirmModal(null);})} style={{background:"#1e2330",border:"1px solid #2a3045",borderRadius:5,width:26,height:26,display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",color:"#7a8399",fontSize:12}}>✕</button>
+                    <button onClick={()=>askConfirm(`¿Eliminar cargo "${c.nombre}"?`, async ()=>{
+                      await apiFetch("/wom.php?resource=cargos&id="+c.id,{method:"DELETE"});
+                      setCargos(p=>p.filter(x=>x.id!==c.id)); showToast("Cargo eliminado"); setConfirmModal(null);
+                    })} style={{background:"#1e2330",border:"1px solid #2a3045",borderRadius:5,width:26,height:26,display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",color:"#7a8399",fontSize:12}}>✕</button>
                   </div>
                 </div>
               ))}
@@ -1893,14 +1950,24 @@ export default function App() {
           </div>
         </div>
       )}
-      {cargoModal && cargoModal!=="list" && <CargoModal onClose={()=>setCargoModal(null)} entry={cargoModal==="new"?null:cargoModal} onSave={data=>{
-        if(cargoModal==="new"){ setCargos(p=>[...p,{id:"c"+Date.now(),...data}]); showToast("Cargo creado ✓"); }
-        else { setCargos(p=>p.map(c=>c.id===cargoModal.id?{...c,...data}:c)); showToast("Cargo actualizado ✓"); }
+      {cargoModal && cargoModal!=="list" && <CargoModal onClose={()=>setCargoModal(null)} entry={cargoModal==="new"?null:cargoModal} onSave={async data=>{
+        if(cargoModal==="new"){
+          const res = await apiFetch("/wom.php?resource=cargos",{method:"POST",body:JSON.stringify(data)});
+          setCargos(p=>[...p,{...data,id:res.id}]); showToast("Cargo creado ✓");
+        } else {
+          await apiFetch("/wom.php?resource=cargos",{method:"PUT",body:JSON.stringify({...data,id:cargoModal.id})});
+          setCargos(p=>p.map(c=>c.id===cargoModal.id?{...c,...data}:c)); showToast("Cargo actualizado ✓");
+        }
         setCargoModal(null);
       }}/>}
-      {trabajadorModal && <TrabajadorModal onClose={()=>setTrabajadorModal(null)} entry={trabajadorModal==="new"?null:trabajadorModal} cargos={cargos} trabajadores={trabajadores} onSave={data=>{
-        if(trabajadorModal==="new"){ setTrabajadores(p=>[...p,{id:"t"+Date.now(),...data}]); showToast("Trabajador agregado ✓"); }
-        else { setTrabajadores(p=>p.map(t=>t.id===trabajadorModal.id?{...t,...data}:t)); showToast("Trabajador actualizado ✓"); }
+      {trabajadorModal && <TrabajadorModal onClose={()=>setTrabajadorModal(null)} entry={trabajadorModal==="new"?null:trabajadorModal} cargos={cargos} trabajadores={trabajadores} onSave={async data=>{
+        if(trabajadorModal==="new"){
+          const res = await apiFetch("/wom.php?resource=trabajadores",{method:"POST",body:JSON.stringify(data)});
+          setTrabajadores(p=>[...p,{...data,id:res.id}]); showToast("Trabajador agregado ✓");
+        } else {
+          await apiFetch("/wom.php?resource=trabajadores",{method:"PUT",body:JSON.stringify({...data,id:trabajadorModal.id})});
+          setTrabajadores(p=>p.map(t=>t.id===trabajadorModal.id?{...t,...data}:t)); showToast("Trabajador actualizado ✓");
+        }
         setTrabajadorModal(null);
       }}/> }
     </div>
