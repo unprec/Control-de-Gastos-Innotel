@@ -609,7 +609,7 @@ function UserModal({ onClose, onSave, entry }) {
 
   const save = () => {
     if (!name.trim()||!email.trim()||!pass.trim()) { alert("Completa todos los campos"); return; }
-    onSave({ name:name.trim(), email:email.trim(), pass:pass.trim(), role, dept: (role==="admin"||role==="gerente") ? null : dept });
+    onSave({ name:name.trim(), email:email.trim(), pass:pass.trim(), role, dept: role==="admin" ? null : dept });
   };
 
   return (
@@ -635,7 +635,7 @@ function UserModal({ onClose, onSave, entry }) {
               <option value="reader">Lector</option>
             </select>
           </div>
-          {role !== "admin" && role !== "gerente" && (
+          {role !== "admin" && (
             <div>
               {lbl("Departamento")}
               <select style={fi} value={dept} onChange={e=>setDept(e.target.value)}>
