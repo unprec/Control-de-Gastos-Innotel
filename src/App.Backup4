@@ -1197,7 +1197,7 @@ export default function App() {
             <select value={filterMonth} onChange={e=>setFilterMonth(e.target.value)} style={{background:S.surface,border:S.border,borderRadius:8,padding:"7px 12px",color:"#e8ecf4",fontFamily:"inherit",fontSize:13,outline:"none",cursor:"pointer"}}>
               <option value="">Todos los meses</option>{MONTHS.map(m=><option key={m}>{m}</option>)}
             </select>
-            {canEdit&&<button onClick={()=>setModal("new")} style={{background:"#4f7fff",border:"none",borderRadius:8,padding:"8px 16px",color:"#fff",fontWeight:600,fontSize:13,cursor:"pointer",whiteSpace:"nowrap"}}>+ Agregar Gasto</button>}
+            <button onClick={()=>setModal("new")} style={{background:"#4f7fff",border:"none",borderRadius:8,padding:"8px 16px",color:"#fff",fontWeight:600,fontSize:13,cursor:canEdit?"pointer":"not-allowed",opacity:canEdit?1:.4,whiteSpace:"nowrap"}}>+ Agregar Gasto</button>
             <button onClick={()=>{const h=["Fecha","Dept","Cat","Desc","Trabajador","Mes","Monto","Neto","Por"];const rows=tableData.map(e=>[e.date,e.dept,e.cat,`"${e.desc}"`,e.worker,e.month,e.amount,e.netoComision||e.amount,e.by]);const csv=[h,...rows].map(r=>r.join(",")).join("\n");const a=document.createElement("a");a.href=URL.createObjectURL(new Blob(["\uFEFF"+csv],{type:"text/csv;charset=utf-8;"}));a.download="gastos.csv";a.click();showToast("CSV exportado ✓");}} style={{background:S.surface2,border:S.border2,borderRadius:8,padding:"8px 16px",color:"#7a8399",fontFamily:"inherit",fontSize:13,cursor:"pointer",whiteSpace:"nowrap"}}>↓ CSV</button>
             <button onClick={exportExcel} style={{background:"#166534",border:"1px solid #22c55e",borderRadius:8,padding:"8px 16px",color:"#22c55e",fontFamily:"inherit",fontSize:13,fontWeight:600,cursor:"pointer",whiteSpace:"nowrap"}}>↓ Excel</button>
           </div>
@@ -1288,7 +1288,7 @@ export default function App() {
             <select value={filterMonth} onChange={e=>setFilterMonth(e.target.value)} style={{background:S.surface,border:S.border,borderRadius:8,padding:"7px 12px",color:"#e8ecf4",fontFamily:"inherit",fontSize:13,outline:"none",cursor:"pointer"}}>
               <option value="">Todos los meses</option>{MONTHS.map(m=><option key={m}>{m}</option>)}
             </select>
-            {canEdit&&<button onClick={()=>setModal("new")} style={{background:"#4f7fff",border:"none",borderRadius:8,padding:"8px 16px",color:"#fff",fontWeight:600,fontSize:13,cursor:"pointer",whiteSpace:"nowrap"}}>+ Agregar Gasto</button>}
+            <button onClick={()=>setModal("new")} style={{background:"#4f7fff",border:"none",borderRadius:8,padding:"8px 16px",color:"#fff",fontWeight:600,fontSize:13,cursor:canEdit?"pointer":"not-allowed",opacity:canEdit?1:.4,whiteSpace:"nowrap"}}>+ Agregar Gasto</button>
           </div>
           <div style={{background:S.surface,border:S.border,borderRadius:12,overflow:"hidden"}}>
             <table style={{width:"100%",borderCollapse:"collapse"}}>
