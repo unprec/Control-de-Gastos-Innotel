@@ -630,7 +630,6 @@ function UserModal({ onClose, onSave, entry }) {
             {lbl("Rol")}
             <select style={fi} value={role} onChange={e=>setRole(e.target.value)}>
               <option value="admin">Administrador</option>
-              <option value="gerente">Gerente (solo lectura)</option>
               <option value="editor">Editor</option>
               <option value="reader">Lector</option>
             </select>
@@ -761,7 +760,7 @@ export default function App() {
       });
       if (u.error) { setLoginErr("Credenciales incorrectas."); return; }
       setCurrentUser(u);
-      setView(u.role==="admin" || u.role==="gerente" ? "dashboard" : "table");
+      setView(u.role==="admin" ? "dashboard" : "table");
       if (u.dept) { setActiveDept(u.dept); setDashDept(u.dept); }
       await loadAllData();
     } catch(e) { setLoginErr("Error de conexión."); }
@@ -770,15 +769,12 @@ export default function App() {
 
   // Table data
   const tableData = useMemo(() => {
-    let d = entries;
-    // Editor solo ve su dept
-    if (currentUser?.dept) d = d.filter(e=>e.dept===currentUser.dept);
-    else if (activeDept!=="all") d = d.filter(e=>e.dept===activeDept);
+    let d = activeDept==="all" ? entries : entries.filter(e=>e.dept===activeDept);
     if (search)      d = d.filter(e=>e.desc.toLowerCase().includes(search.toLowerCase())||e.worker.toLowerCase().includes(search.toLowerCase())||e.cat.toLowerCase().includes(search.toLowerCase()));
     if (filterCat)   d = d.filter(e=>e.cat===filterCat);
     if (filterMonth) d = d.filter(e=>e.month===filterMonth);
     return d;
-  }, [entries,activeDept,search,filterCat,filterMonth,currentUser]);
+  }, [entries,activeDept,search,filterCat,filterMonth]);
 
   // Dashboard data
   const dashData = useMemo(() => {
@@ -885,8 +881,7 @@ export default function App() {
     setBilling(p=>p.filter(b=>b.id!==id)); showToast("Eliminado"); setConfirmModal(null);
   });
 
-  const depts = currentUser?.role==="admin"||currentUser?.role==="gerente"||!currentUser?.dept ? ["all","Movistar","Entel","Wom"] : [currentUser.dept];
-  const canEdit = currentUser?.role==="admin" || currentUser?.role==="editor";
+  const depts = currentUser?.role==="admin"||!currentUser?.dept ? ["all","Movistar","Entel","Wom"] : [currentUser.dept];
 
   // ── EXPORT EXCEL ──
   const exportExcel = async () => {
@@ -1010,7 +1005,7 @@ export default function App() {
         <div style={{fontWeight:800,fontSize:16,background:"linear-gradient(135deg,#4f7fff,#7c5cfc)",WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent",marginRight:4,whiteSpace:"nowrap"}}>Gestión de Gastos</div>
         <div style={{display:"flex",gap:2,background:S.surface2,border:S.border,borderRadius:8,padding:3}}>
           {[["dashboard","📊 Dashboard"],["table","☰ Tabla"],["billing","💰 Facturación"],["calidad","⭐ Calidad"]]
-            .filter(([v])=> currentUser.role==="admin" || currentUser.role==="gerente" || v==="table")
+            .filter(([v])=> currentUser.role==="admin" || v==="table")
             .map(([v,label])=>(
             <button key={v} onClick={()=>setView(v)} style={{padding:"5px 14px",borderRadius:5,fontSize:12,fontWeight:500,cursor:"pointer",border:"none",color:view===v?"#e8ecf4":"#7a8399",background:view===v?S.surface:"transparent",fontFamily:"inherit",boxShadow:view===v?"0 1px 3px rgba(0,0,0,.3)":"none",whiteSpace:"nowrap"}}>
               {label}
@@ -1026,7 +1021,7 @@ export default function App() {
         <div style={{display:"flex",alignItems:"center",gap:10,marginLeft:"auto"}}>
           <div style={{display:"flex",alignItems:"center",gap:8,background:S.surface2,border:S.border,borderRadius:20,padding:"4px 12px 4px 4px"}}>
             <div style={{width:26,height:26,borderRadius:"50%",background:"linear-gradient(135deg,#4f7fff,#7c5cfc)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:11,fontWeight:700,color:"#fff"}}>{initials}</div>
-            <div><div style={{fontSize:12,fontWeight:500}}>{currentUser.name}</div><div style={{fontSize:10,color:"#7a8399"}}>{currentUser.role==="admin"?"Administrador":currentUser.role==="gerente"?"Gerente":currentUser.role==="editor"?"Editor":"Lector"}</div></div>
+            <div><div style={{fontSize:12,fontWeight:500}}>{currentUser.name}</div><div style={{fontSize:10,color:"#7a8399"}}>{currentUser.role==="admin"?"Administrador":currentUser.role==="editor"?"Editor":"Lector"}</div></div>
           </div>
           {currentUser.role==="admin" && <button onClick={()=>setView("users")} title="Gestión de usuarios" style={{background:view==="users"?"rgba(79,127,255,.15)":"none",border:`1px solid ${view==="users"?"rgba(79,127,255,.4)":"#1e2330"}`,borderRadius:6,height:32,width:32,display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",color:view==="users"?"#4f7fff":"#7a8399",fontSize:16}}>👤</button>}
           <button onClick={exportExcel} title="Exportar a Excel" style={{background:"#166534",border:"1px solid #22c55e",borderRadius:6,height:32,padding:"0 12px",display:"flex",alignItems:"center",gap:5,cursor:"pointer",color:"#22c55e",fontSize:12,fontWeight:600}}>↓ Excel</button>
@@ -1169,14 +1164,12 @@ export default function App() {
       {view==="table" && activeDept!=="Wom" && (
         <div style={{padding:24,display:"flex",flexDirection:"column",gap:20}}>
           <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(170px,1fr))",gap:12}}>
-            {(currentUser.dept ? [
-              {color:deptColor(currentUser.dept),label:currentUser.dept,val:fmtMoney(entries.filter(e=>e.dept===currentUser.dept).reduce((s,e)=>s+e.amount,0)),sub:`${entries.filter(e=>e.dept===currentUser.dept).length} registros`},
-            ] : [
+            {[
               {color:"#4f7fff",label:"Total Gastos",val:fmtMoney(entries.reduce((s,e)=>s+e.amount,0)),sub:`${entries.length} registros`},
               {color:"#00b5e2",label:"Movistar",val:fmtMoney(entries.filter(e=>e.dept==="Movistar").reduce((s,e)=>s+e.amount,0)),sub:`${entries.filter(e=>e.dept==="Movistar").length} reg.`},
               {color:"#ff6b35",label:"Entel",val:fmtMoney(entries.filter(e=>e.dept==="Entel").reduce((s,e)=>s+e.amount,0)),sub:`${entries.filter(e=>e.dept==="Entel").length} reg.`},
               {color:"#a78bfa",label:"Wom",val:fmtMoney(entries.filter(e=>e.dept==="Wom").reduce((s,e)=>s+e.amount,0)),sub:`${entries.filter(e=>e.dept==="Wom").length} reg.`},
-            ]).map((s,i)=>(
+            ].map((s,i)=>(
               <div key={i} style={{background:S.surface,border:S.border,borderRadius:12,padding:"18px 20px",position:"relative",overflow:"hidden"}}>
                 <div style={{position:"absolute",top:0,left:0,right:0,height:2,background:s.color}}/>
                 <div style={{fontSize:10,textTransform:"uppercase",letterSpacing:".1em",color:"#7a8399",marginBottom:8,fontWeight:500}}>{s.label}</div>
@@ -1197,7 +1190,7 @@ export default function App() {
             <select value={filterMonth} onChange={e=>setFilterMonth(e.target.value)} style={{background:S.surface,border:S.border,borderRadius:8,padding:"7px 12px",color:"#e8ecf4",fontFamily:"inherit",fontSize:13,outline:"none",cursor:"pointer"}}>
               <option value="">Todos los meses</option>{MONTHS.map(m=><option key={m}>{m}</option>)}
             </select>
-            <button onClick={()=>setModal("new")} style={{background:"#4f7fff",border:"none",borderRadius:8,padding:"8px 16px",color:"#fff",fontWeight:600,fontSize:13,cursor:canEdit?"pointer":"not-allowed",opacity:canEdit?1:.4,whiteSpace:"nowrap"}}>+ Agregar Gasto</button>
+            <button onClick={()=>setModal("new")} disabled={currentUser.role==="reader"} style={{background:"#4f7fff",border:"none",borderRadius:8,padding:"8px 16px",color:"#fff",fontWeight:600,fontSize:13,cursor:"pointer",opacity:currentUser.role==="reader"?.4:1,whiteSpace:"nowrap"}}>+ Agregar Gasto</button>
             <button onClick={()=>{const h=["Fecha","Dept","Cat","Desc","Trabajador","Mes","Monto","Neto","Por"];const rows=tableData.map(e=>[e.date,e.dept,e.cat,`"${e.desc}"`,e.worker,e.month,e.amount,e.netoComision||e.amount,e.by]);const csv=[h,...rows].map(r=>r.join(",")).join("\n");const a=document.createElement("a");a.href=URL.createObjectURL(new Blob(["\uFEFF"+csv],{type:"text/csv;charset=utf-8;"}));a.download="gastos.csv";a.click();showToast("CSV exportado ✓");}} style={{background:S.surface2,border:S.border2,borderRadius:8,padding:"8px 16px",color:"#7a8399",fontFamily:"inherit",fontSize:13,cursor:"pointer",whiteSpace:"nowrap"}}>↓ CSV</button>
             <button onClick={exportExcel} style={{background:"#166534",border:"1px solid #22c55e",borderRadius:8,padding:"8px 16px",color:"#22c55e",fontFamily:"inherit",fontSize:13,fontWeight:600,cursor:"pointer",whiteSpace:"nowrap"}}>↓ Excel</button>
           </div>
@@ -1239,7 +1232,7 @@ export default function App() {
                     </td>
                     <td style={{padding:"12px",fontSize:11,color:"#4a5168"}}>{e.by}</td>
                     <td style={{padding:"12px"}}>
-                      {currentUser.role==="admin"&&(
+                      {currentUser.role!=="reader"&&(
                         <div style={{display:"flex",gap:4}}>
                           <button onClick={()=>setModal(e)} style={{background:S.surface2,border:S.border2,borderRadius:5,width:26,height:26,display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",color:"#7a8399",fontSize:12}}>✎</button>
                           <button onClick={()=>deleteEntry(e.id)} style={{background:S.surface2,border:S.border2,borderRadius:5,width:26,height:26,display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",color:"#7a8399",fontSize:12}}>✕</button>
@@ -1288,7 +1281,7 @@ export default function App() {
             <select value={filterMonth} onChange={e=>setFilterMonth(e.target.value)} style={{background:S.surface,border:S.border,borderRadius:8,padding:"7px 12px",color:"#e8ecf4",fontFamily:"inherit",fontSize:13,outline:"none",cursor:"pointer"}}>
               <option value="">Todos los meses</option>{MONTHS.map(m=><option key={m}>{m}</option>)}
             </select>
-            <button onClick={()=>setModal("new")} style={{background:"#4f7fff",border:"none",borderRadius:8,padding:"8px 16px",color:"#fff",fontWeight:600,fontSize:13,cursor:canEdit?"pointer":"not-allowed",opacity:canEdit?1:.4,whiteSpace:"nowrap"}}>+ Agregar Gasto</button>
+            <button onClick={()=>setModal("new")} disabled={currentUser.role==="reader"} style={{background:"#4f7fff",border:"none",borderRadius:8,padding:"8px 16px",color:"#fff",fontWeight:600,fontSize:13,cursor:"pointer",opacity:currentUser.role==="reader"?.4:1,whiteSpace:"nowrap"}}>+ Agregar Gasto</button>
           </div>
           <div style={{background:S.surface,border:S.border,borderRadius:12,overflow:"hidden"}}>
             <table style={{width:"100%",borderCollapse:"collapse"}}>
@@ -1320,7 +1313,7 @@ export default function App() {
                     </td>
                     <td style={{padding:"12px",fontSize:11,color:"#4a5168"}}>{e.by}</td>
                     <td style={{padding:"12px"}}>
-                      {currentUser.role==="admin"&&(<div style={{display:"flex",gap:4}}>
+                      {currentUser.role!=="reader"&&(<div style={{display:"flex",gap:4}}>
                         <button onClick={()=>setModal(e)} style={{background:S.surface2,border:S.border2,borderRadius:5,width:26,height:26,display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",color:"#7a8399",fontSize:12}}>✎</button>
                         <button onClick={()=>deleteEntry(e.id)} style={{background:S.surface2,border:S.border2,borderRadius:5,width:26,height:26,display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",color:"#7a8399",fontSize:12}}>✕</button>
                       </div>)}
@@ -1527,7 +1520,7 @@ export default function App() {
               <select value={billMonth} onChange={e=>setBillMonth(e.target.value)} style={{background:S.surface,border:S.border,borderRadius:8,padding:"7px 12px",color:"#e8ecf4",fontFamily:"inherit",fontSize:13,outline:"none",cursor:"pointer"}}>
                 {MONTHS.map(m=><option key={m}>{m}</option>)}
               </select>
-              {canEdit&&<button onClick={()=>setBillModal("new")} style={{background:"#22c55e",border:"none",borderRadius:8,padding:"8px 16px",color:"#fff",fontWeight:600,fontSize:13,cursor:"pointer",whiteSpace:"nowrap"}}>+ Registrar Factura</button>}
+              {currentUser.role==="admin"&&<button onClick={()=>setBillModal("new")} style={{background:"#22c55e",border:"none",borderRadius:8,padding:"8px 16px",color:"#fff",fontWeight:600,fontSize:13,cursor:"pointer",whiteSpace:"nowrap"}}>+ Registrar Factura</button>}
             </div>
           </div>
 
@@ -1916,8 +1909,8 @@ export default function App() {
                     <td style={{padding:"14px 16px",fontWeight:500}}>{u.name}</td>
                     <td style={{padding:"14px 16px",color:"#7a8399",fontFamily:"monospace",fontSize:12}}>{u.email}</td>
                     <td style={{padding:"14px 16px"}}>
-                      <span style={{background:u.role==="admin"?"rgba(79,127,255,.15)":u.role==="gerente"?"rgba(234,179,8,.15)":u.role==="editor"?"rgba(34,197,94,.1)":"rgba(122,131,153,.1)",color:u.role==="admin"?"#4f7fff":u.role==="gerente"?"#eab308":u.role==="editor"?"#22c55e":"#7a8399",padding:"3px 10px",borderRadius:20,fontSize:11,fontWeight:600}}>
-                        {u.role==="admin"?"Administrador":u.role==="gerente"?"Gerente":u.role==="editor"?"Editor":"Lector"}
+                      <span style={{background:u.role==="admin"?"rgba(79,127,255,.15)":u.role==="editor"?"rgba(34,197,94,.1)":"rgba(122,131,153,.1)",color:u.role==="admin"?"#4f7fff":u.role==="editor"?"#22c55e":"#7a8399",padding:"3px 10px",borderRadius:20,fontSize:11,fontWeight:600}}>
+                        {u.role==="admin"?"Administrador":u.role==="editor"?"Editor":"Lector"}
                       </span>
                     </td>
                     <td style={{padding:"14px 16px"}}>
