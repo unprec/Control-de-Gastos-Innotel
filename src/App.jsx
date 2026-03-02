@@ -729,6 +729,26 @@ export default function App() {
   // Reset week when month changes
   useEffect(() => { setSelectedWeek(0); }, [dashMonth]);
 
+  // ── POLLING — sync every 15 seconds ──
+  useEffect(() => {
+    if (!currentUser) return;
+    const interval = setInterval(async () => {
+      try {
+        const [ents, bills, carg, trabs] = await Promise.all([
+          apiFetch("/entries.php"),
+          apiFetch("/billing.php"),
+          apiFetch("/wom.php?resource=cargos"),
+          apiFetch("/wom.php?resource=trabajadores"),
+        ]);
+        if (Array.isArray(ents))  setEntries(ents);
+        if (Array.isArray(bills)) setBilling(bills);
+        if (Array.isArray(carg))  setCargos(carg);
+        if (Array.isArray(trabs)) setTrabajadores(trabs);
+      } catch(e) {}
+    }, 15000);
+    return () => clearInterval(interval);
+  }, [currentUser]);
+
   const showToast = (msg, type="success") => { setToast({msg,type}); setTimeout(()=>setToast(null),2800); };
   const askConfirm = (msg, onConfirm) => setConfirmModal({ msg, onConfirm });
 
@@ -1335,10 +1355,12 @@ export default function App() {
                 <select value={remMonth} onChange={e=>setRemMonth(e.target.value)} style={{background:S.surface,border:S.border,borderRadius:8,padding:"7px 12px",color:"#e8ecf4",fontFamily:"inherit",fontSize:13,outline:"none",cursor:"pointer"}}>
                   {MONTHS.map(m=><option key={m}>{m}</option>)}
                 </select>
-                {currentUser.role==="admin" && <>
+                {(currentUser.role==="admin" || currentUser.dept==="Wom") && (
                   <button onClick={()=>setTrabajadorModal("new")} style={{background:"#a78bfa",border:"none",borderRadius:8,padding:"8px 14px",color:"#fff",fontWeight:600,fontSize:13,cursor:"pointer",whiteSpace:"nowrap"}}>+ Trabajador</button>
+                )}
+                {currentUser.role==="admin" && (
                   <button onClick={()=>setCargoModal("list")} style={{background:S.surface2,border:"1px solid #a78bfa44",borderRadius:8,padding:"8px 14px",color:"#a78bfa",fontSize:13,cursor:"pointer",whiteSpace:"nowrap"}}>⚙ Cargos</button>
-                </>}
+                )}
               </div>
             </div>
 
@@ -1507,7 +1529,8 @@ export default function App() {
             {DEPTS.map(dept=>{
               const billRec = filteredBilling.filter(b=>b.dept===dept);
               const totalFacturado = billRec.reduce((s,b)=>s+(b.totalFinal||b.totalFactura||b.total||0),0);
-              const totalGastos    = entries.filter(e=>e.dept===dept&&e.month===billMonth).reduce((s,e)=>s+e.amount,0);
+              const totalGastos    = entries.filter(e=>e.dept===dept&&e.month===billMonth).reduce((s,e)=>s+e.amount,0)
+                                   + (dept==="Wom" ? trabajadores.filter(t=>t.month===billMonth).reduce((s,t)=>s+t.sueldoBase,0) : 0);
               const totalComPagado = entries.filter(e=>e.dept===dept&&e.month===billMonth&&e.isComision).reduce((s,e)=>s+e.amount,0);
               const totalNeto      = entries.filter(e=>e.dept===dept&&e.month===billMonth&&e.isComision).reduce((s,e)=>s+(e.netoComision||e.amount),0);
               const margen         = totalFacturado - totalGastos;
